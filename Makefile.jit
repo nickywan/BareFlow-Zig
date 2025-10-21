@@ -1,0 +1,99 @@
+# Makefile.jit - Build JIT tests and interface with LLVM 18
+# Usage: make -f Makefile.jit
+
+# Compiler (use clang++ 18)
+CXX = clang++-18
+LLVM_CONFIG = llvm-config-18
+
+# Check if llvm-config exists, fallback to llvm-config if not
+ifeq ($(shell which $(LLVM_CONFIG) 2>/dev/null),)
+    LLVM_CONFIG = llvm-config
+endif
+
+# LLVM flags (using shared libraries)
+LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags)
+LLVM_LDFLAGS = $(shell $(LLVM_CONFIG) --ldflags --link-shared)
+LLVM_LIBS = -lLLVM-18
+
+# Compiler flags
+CXXFLAGS = -std=c++17 -Wall -Wextra -g $(LLVM_CXXFLAGS)
+LDFLAGS = $(LLVM_LDFLAGS) $(LLVM_LIBS)
+
+# Directories
+KERNEL_DIR = kernel
+BUILD_DIR = bin
+
+# Source files
+JIT_IMPL = $(KERNEL_DIR)/jit_llvm18.cpp
+TEST_BASIC = test_jit.cpp
+TEST_INTERFACE = test_jit_interface.cpp
+
+# Output binaries
+TEST_BASIC_BIN = $(BUILD_DIR)/test_jit
+TEST_INTERFACE_BIN = $(BUILD_DIR)/test_jit_interface
+
+.PHONY: all clean test help info
+
+all: $(BUILD_DIR) $(TEST_BASIC_BIN) $(TEST_INTERFACE_BIN)
+	@echo ""
+	@echo "✓ Build complete!"
+	@echo "  - Basic test: $(TEST_BASIC_BIN)"
+	@echo "  - Interface test: $(TEST_INTERFACE_BIN)"
+
+$(BUILD_DIR):
+	@mkdir -p $(BUILD_DIR)
+
+# Build basic JIT test
+$(TEST_BASIC_BIN): $(TEST_BASIC) | $(BUILD_DIR)
+	@echo "Building basic JIT test..."
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "✓ Built: $@"
+
+# Build interface test (includes JIT implementation)
+$(TEST_INTERFACE_BIN): $(TEST_INTERFACE) $(JIT_IMPL) | $(BUILD_DIR)
+	@echo "Building JIT interface test..."
+	$(CXX) $(CXXFLAGS) -I. $^ -o $@ $(LDFLAGS)
+	@echo "✓ Built: $@"
+
+# Run basic test
+test-basic: $(TEST_BASIC_BIN)
+	@echo ""
+	@echo "=== Running basic JIT test ==="
+	@./$(TEST_BASIC_BIN)
+
+# Run interface test
+test-interface: $(TEST_INTERFACE_BIN)
+	@echo ""
+	@echo "=== Running interface JIT test ==="
+	@./$(TEST_INTERFACE_BIN)
+
+# Run all tests
+test: test-basic test-interface
+
+# Show configuration
+info:
+	@echo "=== BareFlow JIT Build Configuration ==="
+	@echo "CXX: $(CXX)"
+	@echo "LLVM Config: $(LLVM_CONFIG)"
+	@echo "LLVM Version: $(shell $(LLVM_CONFIG) --version)"
+	@echo "LLVM CXXFLAGS: $(LLVM_CXXFLAGS)"
+	@echo ""
+
+# Clean
+clean:
+	@echo "Cleaning JIT build files..."
+	rm -rf $(BUILD_DIR)
+	@echo "✓ Clean complete"
+
+# Help
+help:
+	@echo "BareFlow JIT Build System"
+	@echo ""
+	@echo "Targets:"
+	@echo "  all            - Build all tests (default)"
+	@echo "  test-basic     - Build and run basic JIT test"
+	@echo "  test-interface - Build and run interface test"
+	@echo "  test           - Run all tests"
+	@echo "  info           - Show build configuration"
+	@echo "  clean          - Remove build files"
+	@echo "  help           - Show this help"

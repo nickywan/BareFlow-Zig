@@ -36,14 +36,42 @@ typedef enum {
 
 int jit_recompile_function(JITContext* ctx, const char* name, JITOptLevel opt);
 
-// Stats
+// Function profiling info
+typedef struct {
+    char name[64];
+    void* code_ptr;
+    uint64_t call_count;
+    uint64_t total_cycles;
+    uint32_t code_size;
+    JITOptLevel current_opt_level;
+} JITFunctionInfo;
+
+// Global stats
 typedef struct {
     uint64_t functions_compiled;
     uint64_t total_compile_time_us;
     uint64_t memory_used_bytes;
+    uint64_t total_function_calls;
+    uint64_t reoptimizations;
 } JITStats;
 
 void jit_get_stats(JITContext* ctx, JITStats* stats);
+
+// Function profiling
+#define JIT_PROFILE_THRESHOLD 100  // Calls before auto-reoptimization
+
+// Get info for a specific function
+int jit_get_function_info(JITContext* ctx, const char* name, JITFunctionInfo* info);
+
+// List all loaded functions
+int jit_list_functions(JITContext* ctx, JITFunctionInfo* infos, int max_count);
+
+// Profile-guided reoptimization
+// Returns 1 if reoptimized, 0 if not needed, -1 on error
+int jit_auto_optimize(JITContext* ctx, const char* name);
+
+// Record function call (for profiling)
+void jit_record_call(JITContext* ctx, const char* name, uint64_t cycles);
 
 // Error handling
 const char* jit_get_last_error(JITContext* ctx);
