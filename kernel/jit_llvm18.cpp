@@ -10,8 +10,6 @@
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/MemoryBuffer.h>
-#include <llvm/Transforms/IPO/PassManagerBuilder.h>
-#include <llvm/Passes/PassBuilder.h>
 
 #include <memory>
 #include <string>
