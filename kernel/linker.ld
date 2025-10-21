@@ -30,4 +30,10 @@ SECTIONS
         *(.bss)
         *(COMMON)
     }
+    /* Embedded bitcode */
+    .bitcode : {
+        _binary_libs_minimal_bc_start = .;
+        *(.bitcode)
+        _binary_libs_minimal_bc_end = .;
+    }
 }
