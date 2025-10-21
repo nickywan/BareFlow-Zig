@@ -1,6 +1,6 @@
 # 🔥 Fluid OS - Self-Optimizing Kernel
 
-**Un unikernel avec LLVM JIT runtime qui s'optimise lui-même à chaud.**
+**A unikernel with LLVM JIT runtime that self-optimizes at runtime.**
 
 ## Quick Start
 
@@ -35,11 +35,11 @@ Kernel Fluid (Ring 0)
   └── Re-JIT Optimizer
 ```
 
-**Innovation**: Kernel qui se JIT lui-même pour s'adapter au workload.
+**Innovation**: Kernel that JITs itself to adapt to the workload.
 
 ## Boot Process - Two Stage Bootloader
 
-Le système utilise un bootloader en deux étapes pour charger le kernel en mode protégé 32-bit.
+The system uses a two-stage bootloader to load the kernel in 32-bit protected mode.
 
 ### 📋 Disk Layout
 
@@ -55,180 +55,180 @@ Le système utilise un bootloader en deux étapes pour charger le kernel en mode
 
 ### 🚀 Stage 1 - Initial Bootloader (boot/stage1.asm)
 
-**Taille**: 512 bytes (1 secteur)
-**Adresse de chargement**: 0x7C00 (chargé par le BIOS)
-**Responsabilités**:
+**Size**: 512 bytes (1 sector)
+**Load address**: 0x7C00 (loaded by BIOS)
+**Responsibilities**:
 
-1. **Initialisation basique**
-   - Configure les segments (DS, ES, SS = 0x0000)
-   - Configure la pile (SP = 0x7C00, pile descendante)
-   - Sauvegarde le numéro du disque de boot (DL)
+1. **Basic initialization**
+   - Configure segments (DS, ES, SS = 0x0000)
+   - Configure stack (SP = 0x7C00, descending stack)
+   - Save boot drive number (DL)
 
-2. **Chargement de Stage 2**
-   - Charge 8 secteurs (4 KB) depuis le disque
-   - Secteurs 2-9 → adresse mémoire 0x7E00
-   - Utilise INT 0x13 (BIOS disk services) en mode CHS
-   - 3 tentatives de retry en cas d'erreur
+2. **Load Stage 2**
+   - Load 8 sectors (4 KB) from disk
+   - Sectors 2-9 → memory address 0x7E00
+   - Uses INT 0x13 (BIOS disk services) in CHS mode
+   - 3 retry attempts on error
 
-3. **Transfert de contrôle**
-   - Passe le numéro de disque à Stage 2 (via DL)
-   - Saute vers Stage 2 à l'adresse 0x7E00
+3. **Transfer control**
+   - Pass disk number to Stage 2 (via DL)
+   - Jump to Stage 2 at address 0x7E00
 
 **Limitations**:
-- Mode réel 16-bit seulement
-- Pas de support LBA (seulement CHS pour simplicité)
-- Taille fixe de 512 bytes (contrainte BIOS)
+- Real mode 16-bit only
+- No LBA support (CHS only for simplicity)
+- Fixed size of 512 bytes (BIOS constraint)
 
 ### 🔧 Stage 2 - Extended Bootloader (boot/stage2.asm)
 
-**Taille**: 4 KB (8 secteurs)
-**Adresse de chargement**: 0x7E00
-**Responsabilités**:
+**Size**: 4 KB (8 sectors)
+**Load address**: 0x7E00
+**Responsibilities**:
 
-#### 1. **Détection du support LBA**
+#### 1. **Detect LBA support**
 ```
 INT 0x13, AH=0x41 (Check Extensions Present)
-→ Permet de charger le kernel avec LBA (plus moderne) ou CHS (fallback)
+→ Allows loading kernel with LBA (modern) or CHS (fallback)
 ```
 
-#### 2. **Activation de la ligne A20**
-La ligne A20 permet d'accéder à la mémoire au-delà de 1 MB. Trois méthodes tentées dans l'ordre :
+#### 2. **Enable A20 line**
+The A20 line enables access to memory beyond 1 MB. Three methods attempted in order:
 
-| Méthode | Description | Avantage |
+| Method | Description | Advantage |
 |---------|-------------|----------|
-| **BIOS** | INT 0x15, AX=0x2401 | Simple et portable |
-| **Keyboard Controller** | Via ports 0x64/0x60 | Compatible avec anciens PC |
-| **Fast A20** | Port 0x92 | Rapide sur PC récents |
+| **BIOS** | INT 0x15, AX=0x2401 | Simple and portable |
+| **Keyboard Controller** | Via ports 0x64/0x60 | Compatible with older PCs |
+| **Fast A20** | Port 0x92 | Fast on recent PCs |
 
-Vérification avec test mémoire à 0x7E00 vs 0xFFFF:0x7E10.
+Verification with memory test at 0x7E00 vs 0xFFFF:0x7E10.
 
-#### 3. **Chargement du kernel**
+#### 3. **Load kernel**
 ```
-Secteur 9+ → adresse mémoire 0x1000
-Taille: 15 secteurs (~7.5 KB)
-Méthode: LBA (préféré) ou CHS (fallback)
-Retry: 3 tentatives maximum
-```
-
-#### 4. **Vérification de signature**
-```
-Vérifie que les 4 premiers bytes du kernel = "FLUD" (0x464C5544)
-Empêche l'exécution de données corrompues
+Sector 9+ → memory address 0x1000
+Size: 15 sectors (~7.5 KB)
+Method: LBA (preferred) or CHS (fallback)
+Retry: 3 attempts maximum
 ```
 
-#### 5. **Configuration de la GDT** (Global Descriptor Table)
+#### 4. **Signature verification**
+```
+Verify that first 4 bytes of kernel = "FLUD" (0x464C5544)
+Prevents execution of corrupted data
+```
+
+#### 5. **GDT Configuration** (Global Descriptor Table)
 ```
 ┌─────────────┬────────────────┬──────────────────┐
 │ NULL (0x00) │ CODE (0x08)    │ DATA (0x10)      │
 └─────────────┴────────────────┴──────────────────┘
        ↓              ↓                  ↓
-    Requis      Ring 0, 4GB       Ring 0, 4GB
+   Required      Ring 0, 4GB       Ring 0, 4GB
                Executable         Writable
 ```
 
-#### 6. **Passage en mode protégé**
+#### 6. **Protected mode transition**
 ```assembly
-cli                    ; Désactive les interruptions
-lgdt [gdt_descriptor]  ; Charge la GDT
-mov cr0, 0x1          ; Active le bit PE (Protection Enable)
-jmp CODE_SEG:protected_mode_start  ; Far jump pour flush du pipeline
+cli                    ; Disable interrupts
+lgdt [gdt_descriptor]  ; Load GDT
+mov cr0, 0x1          ; Enable PE (Protection Enable) bit
+jmp CODE_SEG:protected_mode_start  ; Far jump to flush pipeline
 ```
 
-#### 7. **Initialisation mode protégé (32-bit)**
+#### 7. **Protected mode initialization (32-bit)**
 ```
-- Configure tous les segments (DS, SS, ES, FS, GS) → 0x10 (DATA_SEG)
-- Configure la pile à 0x90000 (EBP/ESP)
-- Saute vers le kernel à 0x1000
+- Configure all segments (DS, SS, ES, FS, GS) → 0x10 (DATA_SEG)
+- Configure stack at 0x90000 (EBP/ESP)
+- Jump to kernel at 0x1000
 ```
 
 ### 🎯 Kernel Entry Point (kernel/entry.asm)
 
-**Signature**: `"FLUD"` (0x464C5544) - les 4 premiers bytes
-**Adresse**: 0x1000
+**Signature**: `"FLUD"` (0x464C5544) - first 4 bytes
+**Address**: 0x1000
 **Format**: ELF 32-bit flat binary
 
-Le kernel reçoit le contrôle en mode protégé 32-bit avec :
+The kernel receives control in 32-bit protected mode with:
 - CS = 0x08 (code segment)
 - DS/SS/ES/FS/GS = 0x10 (data segment)
-- ESP = 0x90000 (pile configurée)
-- Interruptions désactivées (CLI)
+- ESP = 0x90000 (configured stack)
+- Interrupts disabled (CLI)
 
-Puis `kernel_main()` prend le relais (kernel/kernel.c).
+Then `kernel_main()` takes over (kernel/kernel.c).
 
 ### 🔍 Boot Sequence Summary
 
 ```
 ┌─────────────┐
-│    BIOS     │ Charge Sector 0 → 0x7C00
+│    BIOS     │ Load Sector 0 → 0x7C00
 └──────┬──────┘
        ↓
 ┌─────────────┐
-│   Stage 1   │ Charge Sectors 1-8 → 0x7E00
+│   Stage 1   │ Load Sectors 1-8 → 0x7E00
 │  (0x7C00)   │ Jump → 0x7E00
 └──────┬──────┘
        ↓
 ┌─────────────┐
-│   Stage 2   │ 1. Détecte LBA
-│  (0x7E00)   │ 2. Active A20
-│             │ 3. Charge Kernel → 0x1000
-│             │ 4. Vérifie signature "FLUD"
+│   Stage 2   │ 1. Detect LBA
+│  (0x7E00)   │ 2. Enable A20
+│             │ 3. Load Kernel → 0x1000
+│             │ 4. Verify "FLUD" signature
 │             │ 5. Configure GDT
-│             │ 6. Mode protégé
+│             │ 6. Protected mode
 │             │ 7. Jump → 0x1000
 └──────┬──────┘
        ↓
 ┌─────────────┐
-│   Kernel    │ kernel_main() en Ring 0
-│  (0x1000)   │ Mode protégé 32-bit
+│   Kernel    │ kernel_main() in Ring 0
+│  (0x1000)   │ 32-bit protected mode
 └─────────────┘
 ```
 
 ### ⚠️ Error Handling
 
-Stage 2 utilise des codes d'erreur en hexadécimal :
+Stage 2 uses hexadecimal error codes:
 
-| Code | Erreur | Cause probable |
+| Code | Error | Probable Cause |
 |------|--------|----------------|
-| `0xD1` | DISK_READ | Échec lecture disque |
-| `0xD2` | DISK_VERIFY | Nombre de secteurs incorrect |
-| `0xA2` | A20_FAILED | Ligne A20 non activable |
-| `0x51` | BAD_SIGNATURE | Signature kernel invalide |
-| `0xE0` | NO_KERNEL | Kernel non trouvé |
+| `0xD1` | DISK_READ | Disk read failure |
+| `0xD2` | DISK_VERIFY | Incorrect sector count |
+| `0xA2` | A20_FAILED | A20 line cannot be enabled |
+| `0x51` | BAD_SIGNATURE | Invalid kernel signature |
+| `0xE0` | NO_KERNEL | Kernel not found |
 
-En cas d'erreur fatale, le système affiche `FATAL ERROR: 0xXX` et stoppe (CLI/HLT).
+On fatal error, the system displays `FATAL ERROR: 0xXX` and halts (CLI/HLT).
 
 ## Build System
 
-Le Makefile orchestre la construction complète :
+The Makefile orchestrates the complete build:
 
 ```bash
-make         # Build tout
-make run     # Build + lancement QEMU
-make debug   # Build + QEMU avec logs CPU
-make clean   # Nettoyage
+make         # Build everything
+make run     # Build + launch QEMU
+make debug   # Build + QEMU with CPU logs
+make clean   # Clean artifacts
 make rebuild # Clean + build
 ```
 
-**Pipeline de build** :
-1. Stage 1 (NASM) → `build/stage1.bin` (512 bytes exact)
-2. Stage 2 (NASM) → `build/stage2.bin` (4096 bytes exact)
+**Build pipeline**:
+1. Stage 1 (NASM) → `build/stage1.bin` (exactly 512 bytes)
+2. Stage 2 (NASM) → `build/stage2.bin` (exactly 4096 bytes)
 3. Kernel ASM (NASM) + C (GCC) → `build/kernel.bin`
-4. Assemblage avec `dd` → `fluid.img` (disquette 1.44 MB)
+4. Assembly with `dd` → `fluid.img` (1.44 MB floppy)
 
 ## Status
 
-- ✅ Phase 1: POC User-Space (VALIDÉE)
-- 🚧 Phase 2: Kernel Bare Metal (EN COURS)
+- ✅ Phase 1: POC User-Space (VALIDATED)
+- 🚧 Phase 2: Kernel Bare Metal (IN PROGRESS)
   - ✅ Two-stage bootloader
   - ✅ Protected mode
   - ✅ VGA text mode
   - ✅ Memory allocator
   - ⏳ LLVM JIT integration
-- ⏳ Phase 3: llama.cpp Integration (FUTUR)
+- ⏳ Phase 3: llama.cpp Integration (FUTURE)
 
 ## Documentation
 
-Voir [PROJECT.md](PROJECT.md) pour documentation complète.
+See [PROJECT.md](PROJECT.md) for complete documentation.
 
 ## License
 
