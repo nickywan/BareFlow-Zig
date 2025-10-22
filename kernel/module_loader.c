@@ -283,8 +283,10 @@ static void print_u64(uint64_t num) {
     int i = 0;
 
     while (num > 0) {
-        buffer[i++] = '0' + (num % 10);
-        num /= 10;
+        uint64_t quotient = udiv64(num, 10);
+        uint64_t remainder = num - (quotient * 10);
+        buffer[i++] = '0' + (char)remainder;
+        num = quotient;
     }
 
     for (int j = i - 1; j >= 0; j--) {

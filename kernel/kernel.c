@@ -10,6 +10,7 @@
 #include "vga.h"
 #include "module_loader.h"
 #include "embedded_modules.h"
+#include "keyboard.h"
 
 // Forward declarations
 extern void* malloc(size_t size);
@@ -70,6 +71,14 @@ void print_hex(unsigned int num) {
     buffer[8] = '\0';
 
     terminal_writestring(buffer);
+}
+
+// Helper to wait for user input
+void pause_for_key(void) {
+    terminal_setcolor(VGA_DARK_GREY, VGA_BLACK);
+    terminal_writestring("\n[Press any key to continue...]\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+    wait_key();
 }
 
 // ============================================================================
@@ -219,10 +228,12 @@ void kernel_main(void) {
     terminal_writestring(" (expected: 5050)\n");
 
     if (result == 5050) {
-        vga_print_color("  [OK] Test passed!\n\n", VGA_GREEN, VGA_BLACK);
+        vga_print_color("  [OK] Test passed!\n", VGA_GREEN, VGA_BLACK);
     } else {
-        vga_print_color("  [FAIL] Test failed!\n\n", VGA_RED, VGA_BLACK);
+        vga_print_color("  [FAIL] Test failed!\n", VGA_RED, VGA_BLACK);
     }
+
+    pause_for_key();
 
     // ========================================================================
     // TEST 2: Fibonacci (optimization test)
@@ -238,10 +249,12 @@ void kernel_main(void) {
     terminal_writestring(" (expected: 6765)\n");
 
     if (result == 6765) {
-        vga_print_color("  [OK] Test passed!\n\n", VGA_GREEN, VGA_BLACK);
+        vga_print_color("  [OK] Test passed!\n", VGA_GREEN, VGA_BLACK);
     } else {
-        vga_print_color("  [FAIL] Test failed!\n\n", VGA_RED, VGA_BLACK);
+        vga_print_color("  [FAIL] Test failed!\n", VGA_RED, VGA_BLACK);
     }
+
+    pause_for_key();
 
     // ========================================================================
     // TEST 3: Compute Intensive (profiling test)
@@ -257,7 +270,9 @@ void kernel_main(void) {
         module_execute(&module_mgr, "compute");
     }
 
-    vga_print_color("  [OK] 10 iterations completed\n\n", VGA_GREEN, VGA_BLACK);
+    vga_print_color("  [OK] 10 iterations completed\n", VGA_GREEN, VGA_BLACK);
+
+    pause_for_key();
 
     // ========================================================================
     // TEST 4: Prime Counter (advanced algorithm)
@@ -275,17 +290,44 @@ void kernel_main(void) {
     terminal_writestring(" primes found (expected: 168)\n");
 
     if (result == 168) {
-        vga_print_color("  [OK] Test passed!\n\n", VGA_GREEN, VGA_BLACK);
+        vga_print_color("  [OK] Test passed!\n", VGA_GREEN, VGA_BLACK);
     } else {
-        vga_print_color("  [FAIL] Test failed!\n\n", VGA_RED, VGA_BLACK);
+        vga_print_color("  [FAIL] Test failed!\n", VGA_RED, VGA_BLACK);
     }
 
+    pause_for_key();
+
     // ========================================================================
-    // PROFILING STATISTICS
+    // PROFILING STATISTICS (one module at a time)
     // ========================================================================
 
+    terminal_setcolor(VGA_CYAN, VGA_BLACK);
+    terminal_writestring("\n========================================\n");
+    terminal_writestring("    PROFILING STATISTICS\n");
+    terminal_writestring("========================================\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    terminal_writestring("Total modules: ");
+    print_int(module_mgr.num_modules);
     terminal_writestring("\n");
-    module_print_all_stats(&module_mgr);
+    terminal_writestring("Total calls: ");
+    print_int((int)module_mgr.total_calls);
+    terminal_writestring("\n");
+
+    pause_for_key();
+
+    // Show each module stats individually
+    module_print_stats(&module_mgr, "sum");
+    pause_for_key();
+
+    module_print_stats(&module_mgr, "fibonacci");
+    pause_for_key();
+
+    module_print_stats(&module_mgr, "compute");
+    pause_for_key();
+
+    module_print_stats(&module_mgr, "primes");
+    pause_for_key();
 
     // ========================================================================
     // FINAL MESSAGE
