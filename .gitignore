@@ -64,3 +64,4 @@ test_minimal
 
 # JIT build directory
 bin/
+test_modules_userspace

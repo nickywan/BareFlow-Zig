@@ -1,12 +1,15 @@
 // ============================================================================
-// FLUID KERNEL - Main kernel code
+// BAREFLOW KERNEL - With Dynamic Module System
 // ============================================================================
 // File: kernel/kernel.c
 // Entry: kernel_main() is called from entry.asm
+// Features: Dynamic module loading, profiling with rdtsc, LLVM-optimized code
 // ============================================================================
 
 #include <stddef.h>
 #include "vga.h"
+#include "module_loader.h"
+#include "embedded_modules.h"
 
 // Forward declarations
 extern void* malloc(size_t size);
@@ -175,44 +178,124 @@ void kernel_main(void) {
     terminal_setcolor(VGA_GREEN, VGA_BLACK);
     terminal_writestring("Kernel initialized successfully!\n\n");
 
+    // ========================================================================
+    // MODULE SYSTEM TEST
+    // ========================================================================
 
-    // ===== TEST MALLOC =====
+    terminal_setcolor(VGA_CYAN, VGA_BLACK);
+    terminal_writestring("========================================\n");
+    terminal_writestring("  DYNAMIC MODULE SYSTEM - LLVM AOT\n");
+    terminal_writestring("========================================\n\n");
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
-    terminal_writestring("[TEST] Allocating 1024 bytes...\n\n");
 
-    void* ptr = malloc(1024);
+    // Initialize module manager
+    module_manager_t module_mgr;
+    module_init(&module_mgr);
 
-    if (ptr != NULL) {
-        terminal_setcolor(VGA_GREEN, VGA_BLACK);
-        terminal_writestring("[[OK] malloc returned: 0x");
+    terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+    terminal_writestring("[INIT] Loading embedded modules...\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
-        // Affiche l'adresse (simple hex print)
-        char hex[16];
-        unsigned long addr = (unsigned long)ptr;
-        int i = 0;
+    // Load all embedded modules
+    int loaded = load_embedded_modules(&module_mgr);
 
-        do {
-            int digit = addr & 0xF;
-            hex[i++] = (digit < 10) ? '0' + digit : 'a' + digit - 10;
-            addr >>= 4;
-        } while (addr != 0);
+    terminal_setcolor(VGA_GREEN, VGA_BLACK);
+    terminal_writestring("\n[OK] Loaded ");
+    print_int(loaded);
+    terminal_writestring(" modules\n\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
-        // Reverse string
-        for (int j = i - 1; j >= 0; j--) {
-            terminal_putchar(hex[j]);
-        }
+    // ========================================================================
+    // TEST 1: Simple Sum (warm-up)
+    // ========================================================================
 
-        terminal_setcolor(VGA_GREEN, VGA_BLACK);
-        terminal_writestring("[OK] malloc works!\n");
+    terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+    terminal_writestring("[TEST 1] Simple Sum Module\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
+    int result = module_execute(&module_mgr, "sum");
+    terminal_writestring("  Result: ");
+    print_int(result);
+    terminal_writestring(" (expected: 5050)\n");
+
+    if (result == 5050) {
+        vga_print_color("  [OK] Test passed!\n\n", VGA_GREEN, VGA_BLACK);
     } else {
-        terminal_setcolor(VGA_RED, VGA_BLACK);
-        terminal_writestring("[FAIL] malloc returned NULL\n");
+        vga_print_color("  [FAIL] Test failed!\n\n", VGA_RED, VGA_BLACK);
     }
 
-    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
-    terminal_writestring("\nSystem ready. CPU halted.\n");
+    // ========================================================================
+    // TEST 2: Fibonacci (optimization test)
+    // ========================================================================
 
+    terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+    terminal_writestring("[TEST 2] Fibonacci Module\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    result = module_execute(&module_mgr, "fibonacci");
+    terminal_writestring("  Result: ");
+    print_int(result);
+    terminal_writestring(" (expected: 6765)\n");
+
+    if (result == 6765) {
+        vga_print_color("  [OK] Test passed!\n\n", VGA_GREEN, VGA_BLACK);
+    } else {
+        vga_print_color("  [FAIL] Test failed!\n\n", VGA_RED, VGA_BLACK);
+    }
+
+    // ========================================================================
+    // TEST 3: Compute Intensive (profiling test)
+    // ========================================================================
+
+    terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+    terminal_writestring("[TEST 3] Compute Intensive Module\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    terminal_writestring("  Running 10 iterations for profiling...\n");
+
+    for (int i = 0; i < 10; i++) {
+        module_execute(&module_mgr, "compute");
+    }
+
+    vga_print_color("  [OK] 10 iterations completed\n\n", VGA_GREEN, VGA_BLACK);
+
+    // ========================================================================
+    // TEST 4: Prime Counter (advanced algorithm)
+    // ========================================================================
+
+    terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+    terminal_writestring("[TEST 4] Prime Counter Module\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    terminal_writestring("  Counting primes < 1000...\n");
+
+    result = module_execute(&module_mgr, "primes");
+    terminal_writestring("  Result: ");
+    print_int(result);
+    terminal_writestring(" primes found (expected: 168)\n");
+
+    if (result == 168) {
+        vga_print_color("  [OK] Test passed!\n\n", VGA_GREEN, VGA_BLACK);
+    } else {
+        vga_print_color("  [FAIL] Test failed!\n\n", VGA_RED, VGA_BLACK);
+    }
+
+    // ========================================================================
+    // PROFILING STATISTICS
+    // ========================================================================
+
+    terminal_writestring("\n");
+    module_print_all_stats(&module_mgr);
+
+    // ========================================================================
+    // FINAL MESSAGE
+    // ========================================================================
+
+    terminal_setcolor(VGA_GREEN, VGA_BLACK);
+    terminal_writestring("\n=== ALL MODULE TESTS COMPLETED ===\n\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    terminal_writestring("System ready. CPU halted.\n");
 
     // Infinite loop
     while (1) {

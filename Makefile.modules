@@ -1,0 +1,62 @@
+# Makefile.modules - Compile C modules to native code via LLVM
+# These modules will be loaded dynamically in the bare-metal kernel
+
+CC = clang-18
+OBJCOPY = objcopy
+
+# Flags for 32-bit bare-metal compilation
+CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -fno-stack-protector \
+         -O2 -Wall -Wextra
+
+# Module sources
+MODULE_DIR = modules
+MODULE_SRCS = $(wildcard $(MODULE_DIR)/*.c)
+MODULE_OBJS = $(MODULE_SRCS:$(MODULE_DIR)/%.c=$(MODULE_DIR)/%.o)
+MODULE_BINS = $(MODULE_SRCS:$(MODULE_DIR)/%.c=$(MODULE_DIR)/%.mod)
+
+.PHONY: all clean list-modules
+
+all: $(MODULE_BINS)
+	@echo ""
+	@echo "✓ All modules compiled"
+	@echo ""
+	@echo "Generated modules:"
+	@ls -lh $(MODULE_DIR)/*.mod 2>/dev/null || true
+
+# Compile C source to object file
+$(MODULE_DIR)/%.o: $(MODULE_DIR)/%.c
+	@echo "Compiling $<..."
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Extract native code to .mod file
+$(MODULE_DIR)/%.mod: $(MODULE_DIR)/%.o
+	@echo "Extracting module $@..."
+	$(OBJCOPY) -O binary $< $@
+	@echo "  Size: $$(stat -c%s $@) bytes"
+
+# List compiled modules
+list-modules:
+	@echo "Available modules:"
+	@for mod in $(MODULE_DIR)/*.mod; do \
+		if [ -f "$$mod" ]; then \
+			name=$$(basename $$mod .mod); \
+			size=$$(stat -c%s $$mod); \
+			echo "  - $$name ($$size bytes)"; \
+		fi \
+	done
+
+# Clean
+clean:
+	@echo "Cleaning modules..."
+	rm -f $(MODULE_DIR)/*.o $(MODULE_DIR)/*.mod
+	@echo "✓ Clean complete"
+
+# Help
+help:
+	@echo "Module Build System"
+	@echo ""
+	@echo "Targets:"
+	@echo "  all          - Compile all modules (default)"
+	@echo "  list-modules - List compiled modules"
+	@echo "  clean        - Remove compiled modules"
+	@echo "  help         - Show this help"
