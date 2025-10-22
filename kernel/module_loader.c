@@ -16,6 +16,26 @@ static void print_int(int num);
 static void print_u64(uint64_t num);
 static void print_hex(uint32_t num);
 
+// Simple 64-bit division (avoids __udivdi3 dependency)
+static uint64_t udiv64(uint64_t dividend, uint64_t divisor) {
+    if (divisor == 0) return 0;
+
+    uint64_t quotient = 0;
+    uint64_t remainder = 0;
+
+    for (int i = 63; i >= 0; i--) {
+        remainder <<= 1;
+        remainder |= (dividend >> i) & 1;
+
+        if (remainder >= divisor) {
+            remainder -= divisor;
+            quotient |= (1ULL << i);
+        }
+    }
+
+    return quotient;
+}
+
 // ============================================================================
 // MODULE MANAGER
 // ============================================================================
@@ -31,6 +51,8 @@ int module_load(module_manager_t* mgr, const void* module_data, size_t size) {
         return -1;
     }
 
+    (void)size;  // Size validation could be added later
+
     // Validate module header
     const module_header_t* header = (const module_header_t*)module_data;
 
@@ -39,15 +61,29 @@ int module_load(module_manager_t* mgr, const void* module_data, size_t size) {
         return -2;
     }
 
-    // Check if module already loaded
+    // Check if module already loaded (simple string comparison)
     for (uint32_t i = 0; i < mgr->num_modules; i++) {
-        if (mgr->modules[i].loaded &&
-            strlen(mgr->modules[i].name) == strlen(header->name) &&
-            memcpy == memcpy) {  // Dummy comparison, need strcmp
-            terminal_writestring("[WARN] Module already loaded: ");
-            terminal_writestring(header->name);
-            terminal_writestring("\n");
-            return -3;
+        if (mgr->modules[i].loaded) {
+            // Compare names
+            const char* a = mgr->modules[i].name;
+            const char* b = header->name;
+            int match = 1;
+
+            while (*a && *b) {
+                if (*a != *b) {
+                    match = 0;
+                    break;
+                }
+                a++;
+                b++;
+            }
+
+            if (match && *a == *b) {
+                terminal_writestring("[WARN] Module already loaded: ");
+                terminal_writestring(header->name);
+                terminal_writestring("\n");
+                return -3;
+            }
         }
     }
 
@@ -170,7 +206,7 @@ void module_print_stats(module_manager_t* mgr, const char* name) {
 
     if (mod->call_count > 0) {
         terminal_writestring("  Avg cycles:    ");
-        print_u64(mod->total_cycles / mod->call_count);
+        print_u64(udiv64(mod->total_cycles, mod->call_count));
         terminal_writestring("\n");
 
         terminal_writestring("  Min cycles:    ");
