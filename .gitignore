@@ -61,4 +61,6 @@ build/kernel.bin
 build/stage1.bin
 build/stage2.bin
 test_minimal
-.gitignore
+
+# JIT build directory
+bin/
