@@ -3,6 +3,7 @@
 // ============================================================================
 // File: kernel/embedded_modules.h
 // Purpose: Module definitions embedded in kernel
+// Note: __attribute__((noinline, used)) prevents aggressive optimization
 // ============================================================================
 
 #ifndef EMBEDDED_MODULES_H
@@ -15,7 +16,8 @@
 // EMBEDDED MODULE: fibonacci
 // ============================================================================
 
-// Optimized by LLVM -O2
+// Prevent inlining to ensure function pointer is valid
+__attribute__((noinline, used))
 static int module_fibonacci(void) {
     int a = 0, b = 1;
     for (int i = 0; i < 20; i++) {
@@ -38,6 +40,7 @@ static const module_header_t fibonacci_header = {
 // EMBEDDED MODULE: simple_sum
 // ============================================================================
 
+__attribute__((noinline, used))
 static int module_simple_sum(void) {
     int sum = 0;
     for (int i = 1; i <= 100; i++) {
@@ -58,6 +61,7 @@ static const module_header_t simple_sum_header = {
 // EMBEDDED MODULE: compute
 // ============================================================================
 
+__attribute__((noinline, used))
 static int module_compute(void) {
     int result = 0;
     for (int i = 0; i < 100; i++) {
@@ -80,6 +84,7 @@ static const module_header_t compute_header = {
 // EMBEDDED MODULE: primes (Advanced test)
 // ============================================================================
 
+__attribute__((noinline, used))
 static int module_is_prime(int n) {
     if (n < 2) return 0;
     if (n == 2) return 1;
@@ -91,6 +96,7 @@ static int module_is_prime(int n) {
     return 1;
 }
 
+__attribute__((noinline, used))
 static int module_count_primes(void) {
     int count = 0;
     for (int i = 0; i < 1000; i++) {

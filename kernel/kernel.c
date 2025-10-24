@@ -223,9 +223,14 @@ void kernel_main(void) {
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     int result = module_execute(&module_mgr, "sum");
+
     terminal_writestring("  Result: ");
     print_int(result);
     terminal_writestring(" (expected: 5050)\n");
+
+    terminal_writestring("  DEBUG: Returned value is ");
+    print_int(result);
+    terminal_writestring("\n");
 
     if (result == 5050) {
         vga_print_color("  [OK] Test passed!\n", VGA_GREEN, VGA_BLACK);
@@ -244,9 +249,14 @@ void kernel_main(void) {
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     result = module_execute(&module_mgr, "fibonacci");
+
     terminal_writestring("  Result: ");
     print_int(result);
     terminal_writestring(" (expected: 6765)\n");
+
+    terminal_writestring("  DEBUG: Returned value is ");
+    print_int(result);
+    terminal_writestring("\n");
 
     if (result == 6765) {
         vga_print_color("  [OK] Test passed!\n", VGA_GREEN, VGA_BLACK);
@@ -264,9 +274,16 @@ void kernel_main(void) {
     terminal_writestring("[TEST 3] Compute Intensive Module\n");
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
-    terminal_writestring("  Running 10 iterations for profiling...\n");
+    terminal_writestring("  Running first iteration...\n");
+    result = module_execute(&module_mgr, "compute");
 
-    for (int i = 0; i < 10; i++) {
+    terminal_writestring("  First result: ");
+    print_int(result);
+    terminal_writestring(" (should be consistent)\n");
+
+    terminal_writestring("  Running 9 more iterations for profiling...\n");
+
+    for (int i = 0; i < 9; i++) {
         module_execute(&module_mgr, "compute");
     }
 
@@ -285,9 +302,14 @@ void kernel_main(void) {
     terminal_writestring("  Counting primes < 1000...\n");
 
     result = module_execute(&module_mgr, "primes");
+
     terminal_writestring("  Result: ");
     print_int(result);
     terminal_writestring(" primes found (expected: 168)\n");
+
+    terminal_writestring("  DEBUG: Returned value is ");
+    print_int(result);
+    terminal_writestring("\n");
 
     if (result == 168) {
         vga_print_color("  [OK] Test passed!\n", VGA_GREEN, VGA_BLACK);
