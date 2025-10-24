@@ -9,6 +9,13 @@ CXX = clang++-18
 LD = ld
 ASMFLAGS = -f bin
 
+# Mode flags (default: automated profiling export)
+# Set INTERACTIVE=1 for interactive mode with keyboard pauses
+CFLAGS_MODE =
+ifdef INTERACTIVE
+    CFLAGS_MODE = -DINTERACTIVE_MODE
+endif
+
 # Paths
 BOOT_DIR = boot
 KERNEL_DIR = kernel
@@ -71,40 +78,40 @@ $(KERNEL_BIN): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 	$(ASM) -f elf32 $(KERNEL_DIR)/entry.asm -o $(BUILD_DIR)/entry.o
 
 	# Compile VGA driver
-	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) \
 		-c $(KERNEL_DIR)/vga.c -o $(BUILD_DIR)/vga.o
 
 	# Compile module loader
-	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) \
 		-c $(KERNEL_DIR)/module_loader.c -o $(BUILD_DIR)/module_loader.o
 
 	# Compile kernel C code
-	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) \
 		-c $(KERNEL_DIR)/kernel.c -o $(BUILD_DIR)/kernel.o
 
 	# Compile stdlib
-	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) \
 		-c $(KERNEL_DIR)/stdlib.c -o $(BUILD_DIR)/stdlib.o
 
 	# Compile JIT allocator
-	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) \
 		-c $(KERNEL_DIR)/jit_allocator.c -o $(BUILD_DIR)/jit_allocator.o
 
 	# Compile JIT allocator tests
-	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) \
 		-c $(KERNEL_DIR)/jit_allocator_test.c -o $(BUILD_DIR)/jit_allocator_test.o
 
 	# Compile profiling export system
-	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) \
 		-c $(KERNEL_DIR)/profiling_export.c -o $(BUILD_DIR)/profiling_export.o
 
 	# Compile C++ runtime
-	$(CXX) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	$(CXX) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) \
 		-fno-exceptions -fno-rtti -fno-threadsafe-statics \
 		-c $(KERNEL_DIR)/cxx_runtime.cpp -o $(BUILD_DIR)/cxx_runtime.o
 
 	# Compile C++ tests
-	$(CXX) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	$(CXX) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) \
 		-fno-exceptions -fno-rtti -fno-threadsafe-statics \
 		-c $(KERNEL_DIR)/cxx_test.cpp -o $(BUILD_DIR)/cxx_test.o
 
@@ -183,3 +190,12 @@ help:
 	@echo "  rebuild - Clean and build"
 	@echo "  info    - Show disk layout"
 	@echo "  help    - Show this help"
+	@echo ""
+	@echo "Build Modes:"
+	@echo "  make              - Automated mode (default, no keyboard pauses)"
+	@echo "  make INTERACTIVE=1 - Interactive mode (with keyboard pauses)"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make clean && make                  # Automated profiling export"
+	@echo "  make clean && make INTERACTIVE=1    # Interactive testing"
+	@echo "  make run INTERACTIVE=1              # Run with keyboard pauses"
