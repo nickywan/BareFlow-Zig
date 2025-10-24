@@ -37,6 +37,7 @@ typedef struct {
     uint64_t total_cycles;
     uint64_t min_cycles;
     uint64_t max_cycles;
+    uint64_t sum_of_squares;  // For variance calculation
     uint32_t code_size;
     int loaded;
 } module_profile_t;

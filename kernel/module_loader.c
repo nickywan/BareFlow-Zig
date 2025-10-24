@@ -36,6 +36,23 @@ static uint64_t udiv64(uint64_t dividend, uint64_t divisor) {
     return quotient;
 }
 
+// Simple integer square root using Newton's method
+static uint64_t isqrt64(uint64_t n) {
+    if (n == 0) return 0;
+    if (n < 4) return 1;
+
+    uint64_t x = n;
+    uint64_t y = (x + 1) >> 1;
+
+    // Newton's method: y = (x + n/x) / 2
+    while (y < x) {
+        x = y;
+        y = (x + udiv64(n, x)) >> 1;
+    }
+
+    return x;
+}
+
 // ============================================================================
 // MODULE MANAGER
 // ============================================================================
@@ -167,6 +184,10 @@ int module_execute(module_manager_t* mgr, const char* name) {
     mod->call_count++;
     mod->total_cycles += cycles;
 
+    // For variance: sum of (x^2)
+    // We need to be careful with overflow, but for cycle counts it should be ok
+    mod->sum_of_squares += cycles * cycles;
+
     if (cycles < mod->min_cycles) mod->min_cycles = cycles;
     if (cycles > mod->max_cycles) mod->max_cycles = cycles;
 
@@ -205,8 +226,10 @@ void module_print_stats(module_manager_t* mgr, const char* name) {
     terminal_writestring("\n");
 
     if (mod->call_count > 0) {
+        uint64_t avg = udiv64(mod->total_cycles, mod->call_count);
+
         terminal_writestring("  Avg cycles:    ");
-        print_u64(udiv64(mod->total_cycles, mod->call_count));
+        print_u64(avg);
         terminal_writestring("\n");
 
         terminal_writestring("  Min cycles:    ");
@@ -216,6 +239,60 @@ void module_print_stats(module_manager_t* mgr, const char* name) {
         terminal_writestring("  Max cycles:    ");
         print_u64(mod->max_cycles);
         terminal_writestring("\n");
+
+        // Calculate standard deviation: sqrt(E[X^2] - E[X]^2)
+        // Variance = (sum_of_squares / n) - (mean)^2
+        uint64_t mean_of_squares = udiv64(mod->sum_of_squares, mod->call_count);
+        uint64_t variance = 0;
+
+        if (mean_of_squares >= avg * avg) {
+            variance = mean_of_squares - (avg * avg);
+        }
+
+        uint64_t std_dev = isqrt64(variance);
+
+        terminal_writestring("  Std dev:       ");
+        print_u64(std_dev);
+        terminal_writestring(" cycles\n");
+
+        // Efficiency: cycles per byte of code
+        if (mod->code_size > 0) {
+            uint64_t cycles_per_byte = udiv64(avg, (uint64_t)mod->code_size);
+            terminal_writestring("  Efficiency:    ");
+            print_u64(cycles_per_byte);
+            terminal_writestring(" cycles/byte\n");
+        }
+
+        // Performance variability (coefficient of variation as percentage)
+        if (avg > 0) {
+            uint64_t cv_percent = udiv64(std_dev * 100, avg);
+            terminal_writestring("  Variability:   ");
+            print_u64(cv_percent);
+            terminal_writestring("% CV\n");
+        }
+
+        // Visual performance bar (relative to max cycles across all runs)
+        terminal_writestring("  Performance:   [");
+        uint64_t range = mod->max_cycles - mod->min_cycles;
+        if (range > 0 && mod->max_cycles > 0) {
+            // Show where avg sits between min and max
+            uint64_t avg_pos = udiv64((avg - mod->min_cycles) * 20, range);
+            for (uint32_t i = 0; i < 20; i++) {
+                if (i == (uint32_t)avg_pos) {
+                    terminal_writestring("A");  // Average marker
+                } else if (i < avg_pos) {
+                    terminal_writestring("=");
+                } else {
+                    terminal_writestring("-");
+                }
+            }
+        } else {
+            terminal_writestring("====================");
+        }
+        terminal_writestring("]\n");
+        terminal_writestring("                 min");
+        for (int i = 0; i < 12; i++) terminal_writestring(" ");
+        terminal_writestring("max\n");
     }
 }
 
@@ -233,6 +310,54 @@ void module_print_all_stats(module_manager_t* mgr) {
     terminal_writestring("Total calls:          ");
     print_u64(mgr->total_calls);
     terminal_writestring("\n\n");
+
+    // Find max avg cycles for relative comparison
+    uint64_t max_avg_cycles = 0;
+    for (uint32_t i = 0; i < mgr->num_modules; i++) {
+        if (mgr->modules[i].loaded && mgr->modules[i].call_count > 0) {
+            uint64_t avg = udiv64(mgr->modules[i].total_cycles, mgr->modules[i].call_count);
+            if (avg > max_avg_cycles) max_avg_cycles = avg;
+        }
+    }
+
+    // Comparative performance bar chart
+    if (max_avg_cycles > 0) {
+        terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+        terminal_writestring("Performance Comparison (avg cycles):\n");
+        terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+        for (uint32_t i = 0; i < mgr->num_modules; i++) {
+            if (mgr->modules[i].loaded && mgr->modules[i].call_count > 0) {
+                module_profile_t* mod = &mgr->modules[i];
+                uint64_t avg = udiv64(mod->total_cycles, mod->call_count);
+
+                // Print module name (padded)
+                terminal_writestring("  ");
+                terminal_writestring(mod->name);
+
+                // Pad to 12 chars
+                size_t name_len = strlen(mod->name);
+                for (size_t j = name_len; j < 12; j++) {
+                    terminal_writestring(" ");
+                }
+
+                terminal_writestring(" [");
+
+                // Bar length proportional to average cycles (max 40 chars)
+                uint64_t bar_len = udiv64(avg * 40, max_avg_cycles);
+                if (bar_len > 40) bar_len = 40;
+
+                for (uint32_t j = 0; j < (uint32_t)bar_len; j++) {
+                    terminal_writestring("#");
+                }
+
+                terminal_writestring("] ");
+                print_u64(avg);
+                terminal_writestring("\n");
+            }
+        }
+        terminal_writestring("\n");
+    }
 
     for (uint32_t i = 0; i < mgr->num_modules; i++) {
         if (mgr->modules[i].loaded) {
