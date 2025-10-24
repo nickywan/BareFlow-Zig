@@ -2,6 +2,8 @@
 
 **A unikernel with LLVM JIT runtime that self-optimizes at runtime.**
 
+Designed for dedicated inference machines, Fluid OS strips the OS surface to a single ring-0 workload, letting LLVM JIT recompile hot paths (C/C++) on the fly while leveraging host-specific CPU features captured at build time.
+
 ## Quick Start
 
 ### Phase 1 (User-Space JIT) - DONE ✅
@@ -212,8 +214,30 @@ make rebuild # Clean + build
 **Build pipeline**:
 1. Stage 1 (NASM) → `build/stage1.bin` (exactly 512 bytes)
 2. Stage 2 (NASM) → `build/stage2.bin` (exactly 4096 bytes)
-3. Kernel ASM (NASM) + C (GCC) → `build/kernel.bin`
+3. Kernel ASM (NASM) + C/C++ (clang-18) → `build/kernel.bin`
 4. Assembly with `dd` → `fluid.img` (1.44 MB floppy)
+
+## Host Compilation & CPU Feature Pipeline
+
+- Run `tools/gen_cpu_profile.py` on the target build machine to snapshot CPUID features, cache sizes, and preferred `-march/-mattr` flags into `build/cpu_profile.json`.
+- The build system consumes the generated `kernel/auto_cpu_flags.mk` include to pass consistent flags to the kernel, modules, and (future) llvm-libc bits.
+- On boot, the kernel re-validates advertised features; mismatches trigger a conservative fallback so images stay portable.
+- Benchmark logs tag runs with the detected profile (`matrix_mul_AVX2`, etc.) to compare machines and guide optimization.
+
+> ℹ️ llvm-libc is the preferred runtime; the roadmap tracks gaps plus a “massage/patch” plan should specific math/stdlib APIs be missing. A minimal fallback shim remains on the table for bare essentials.
+
+## Benchmark Milestones
+
+The roadmap introduces lightweight workloads to exercise the auto-optimizer before TinyLlama:
+
+- `matrix_mul` – Dense GEMM, validates call-count thresholds and SIMD gains.
+- `fft_1d` – Radix-2 FFT, stresses strided memory and trig tables.
+- `sha256_stream` – Streaming hash, tracks bandwidth and pipeline efficiency.
+- `regex_dfa` – Branch-heavy DFA matcher, highlights prediction behaviour.
+- `gemm_tile` – Tiled GEMM, tests allocator/caching and auto-tuned tile sizes.
+- `physics_step` – Particle integrator, mixes math and branching akin to inference loops.
+
+Each bench lands at a specific roadmap milestone with expected metrics (cycles, throughput, PMU counters).
 
 ## Status
 

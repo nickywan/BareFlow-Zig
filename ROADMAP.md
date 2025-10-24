@@ -1,7 +1,7 @@
 # Fluid OS - Project Roadmap
 
 ## Vision
-A bare-metal unikernel capable of running TinyLlama with real-time JIT optimization and persistent optimization cache across reboots.
+A bare-metal unikernel capable of running TinyLlama with real-time JIT optimization and persistent optimization cache across reboots, targeting dedicated inference machines where the kernel and modules are compiled on-host (clang/LLVM + llvm-libc) to squeeze every CPU feature available.
 
 ## Current Status
 ✅ Two-stage bootloader (Stage 1 + Stage 2)
@@ -28,6 +28,15 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Load AOT modules as fallback
   - [ ] JIT compile hot functions on demand
   - [ ] Profile-guided optimization thresholds
+- [ ] Benchmark (JIT smoke test): add `matrix_mul` module, capture baseline vs reoptimized cycles
+- [ ] Early auto-optimization loop
+  - [ ] Implement call-count thresholds on `matrix_mul`
+  - [ ] Trigger recompilation at +100/+1000 calls (O0 → O1 → O2)
+  - [ ] Log cycle deltas before/after
+- [ ] Address Codex revue findings
+  - [ ] Implement aligned allocation strategy in `jit_allocator` (padding vs base realign)
+  - [ ] Fix global destructor order in `cxx_runtime` to match Itanium ABI
+  - [ ] Return positive signal on successful `jit_auto_optimize` recompilations
 
 ### 1.2 Module System Improvements
 - [ ] Dynamic module loading from disk
@@ -43,6 +52,22 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Call graph tracking
   - [ ] Cache hit/miss statistics
   - [ ] Memory allocation tracking
+- [ ] Benchmark (profiling focus): run `fft_1d` module to validate call-count triggers
+- [ ] Benchmark (memory-bound): run `sha256_stream` module to track throughput gains
+- [ ] Auto-optimization iteration
+  - [ ] Integrate profiling dashboards for bench modules
+  - [ ] Demonstrate improvement timeline (initial vs reoptimized) in logs
+- [ ] Toolchain alignment
+  - [ ] Establish host-side build flow tuned for target CPU (SSE/AVX flags via clang/LLVM 18)
+  - [ ] Integrate llvm-libc snapshot for freestanding builds
+  - [ ] Implement CPU feature detection pipeline (see "CPU Feature Detection Pipeline")
+  - [ ] Script `tools/gen_cpu_profile.py` to emit `build/cpu_profile.json`
+  - [ ] Auto-generate `kernel/auto_cpu_flags.mk` from detected capabilities
+  - [ ] Prototype bench metadata tags (e.g., `matrix_mul_AVX2`) using generated profiles
+- [ ] Resolve Codex revue questions
+  - [ ] Decide alignment policy for allocator fix (document chosen approach)
+  - [ ] Define minimal deliverables for 1.2 (disk modules vs LLVM bitcode)
+  - [ ] Specify target `fluid.img` size and default JIT pool allocations
 
 ## Phase 2: Kernel Extensions
 
@@ -58,6 +83,7 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 - [ ] Round-robin scheduler
 - [ ] Context switching
 - [ ] Cooperative multitasking
+- [ ] Benchmark (control-flow stress): execute `regex_dfa` module to observe branch behavior
 
 ### 2.3 Additional Drivers
 - [ ] Serial port (COM1) for debugging
@@ -80,6 +106,12 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Version tracking
   - [ ] Checksum verification
   - [ ] LRU eviction policy
+- [ ] Host-compilation workflow
+  - [ ] Snapshot LLVM toolchain/llvm-libc revisions for reproducible builds
+  - [ ] Automate per-host CPU feature detection and flag injection
+  - [ ] Support compiling modules directly on target inference machines
+  - [ ] Integrate `gen_cpu_profile.py` into CI to validate host profiles
+  - [ ] Export bench tags alongside artifacts for comparison dashboards
 
 ### 3.2 Advanced Profiling
 - [ ] Hardware performance counters (PMU)
@@ -89,6 +121,18 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 - [ ] Sampling-based profiling
 - [ ] Flame graph generation (export data)
 - [ ] Real-time optimization triggers
+- [ ] Benchmark (tiled compute): `gemm_tile` module to validate cache hits and allocator behaviour
+- [ ] Benchmark (physics loop): `physics_step` module to measure SIMD/vector gains
+- [ ] Auto-optimization maturity
+  - [ ] Graduated thresholds per module category
+  - [ ] Tune reoptimization policies for TinyLlama preparation
+- [ ] Hardware-awareness
+  - [ ] Leverage PMU counters for SSE/AVX utilization feedback
+  - [ ] Plan NUMA-aware memory placement for multi-socket deployments
+  - [ ] Track llvm-libc feature coverage for bare-metal runtime
+  - [ ] Inventory critical llvm-libc APIs (benchmarks + TinyLlama) and verify availability
+  - [ ] Correlate bench tags/reporting with PMU metrics (e.g., `gemm_tile_AVX512`)
+  - [ ] Plan llvm-libc massage/patch strategy (enumerate missing pieces, fallback APIs)
 
 ### 3.3 Memory Management
 - [ ] Proper heap allocator (buddy system or slab)
@@ -149,6 +193,38 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Loop unrolling
   - [ ] Constant propagation for weights
   - [ ] Inlining for small functions
+- [ ] Host-tuned deployment
+  - [ ] Compile kernel/modules on target machine with llvm-libc toolchain
+  - [ ] Validate runtime CPU feature alignment with build flags via pipeline reports
+  - [ ] Record inference metrics pre/post host-specific tuning
+  - [ ] Capture bench metadata using generated profile tags (e.g., `matrix_mul_AVX2`)
+  - [ ] Massage/patch llvm-libc as needed for TinyLlama runtime gaps (document diffs)
+
+## CPU Feature Detection Pipeline
+1. **Host Scanner (build time)**  
+   Run `clang -march=native -###` or `llvm-mca` helper to emit supported extensions (SSE, AVX, BMI, etc.) and capture `/proc/cpuinfo` for reference.
+2. **Profile Export**  
+   Normalize features into `build/cpu_profile.json` (flags list + cache sizes + core count). Commit or distribute with the build artifacts.
+3. **Flag Injection**  
+   Generate `kernel/auto_cpu_flags.mk` consumed by Makefiles to set `-mattr=` / `-march=` consistently for kernel, modules, and llvm-libc.
+4. **Runtime Sanity Check**  
+   Early boot routine reads CPUID, re-validates expected features, and logs discrepancies. If mismatch, fall back to conservative path or halt.
+5. **Reporting**  
+   Bench harness consumes the JSON to tag results (e.g., `matrix_mul_AVX2`) so comparisons across machines remain coherent.
+
+## Benchmark Catalog
+- **matrix_mul**  
+  Dense 64×64 / 128×128 multiplication. Validates JIT threshold switching and SIMD gains; report cycles per multiply and reoptimization deltas.
+- **fft_1d**  
+  In-place radix-2 FFT on 1 k samples. Exercises trig tables and strided memory; track cycles per transform and cache effects post-optimization.
+- **sha256_stream**  
+  Hash 1 MB buffer chunks. Highlights memory bandwidth and pipeline efficiency; report throughput (MB/s) and instructions per block.
+- **regex_dfa**  
+  DFA-based pattern matcher over synthetic logs. Stresses branch prediction; compare misprediction counts and average cycles per character.
+- **gemm_tile**  
+  Tiled GEMM with configurable tile size. Validates allocator + cache behavior; collect cache hit rates and optimal tile selection flow.
+- **physics_step**  
+  Particle integrator (Verlet + collision). Mixes math/branching; track SIMD utilization and per-step latency, useful precursor to TinyLlama loops.***
 
 ### 5.3 Persistent Optimization Cache
 - [ ] Boot-time cache loading
