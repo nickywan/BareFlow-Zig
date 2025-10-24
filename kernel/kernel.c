@@ -174,16 +174,36 @@ void kernel_main(void) {
     // Initialize VGA terminal
     terminal_initialize();
 
-    // Early boot debug message
+    // VERY VISIBLE boot message - WHITE ON RED
+    terminal_setcolor(VGA_WHITE, VGA_RED);
+    terminal_writestring("================================================================================\n");
+    terminal_writestring("                     [DEBUG] KERNEL BOOT TEST                                   \n");
+    terminal_writestring("================================================================================\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+    terminal_writestring("\n");
+
+    // Test: Can we even reach here?
     terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
-    terminal_writestring("[DEBUG] Kernel started successfully!\n");
+    terminal_writestring("Step 1: terminal_initialize() OK\n");
+    terminal_writestring("Step 2: VGA write working\n");
+    terminal_writestring("Step 3: About to call print_banner()\n\n");
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     // Print banner
     print_banner();
 
+    terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
+    terminal_writestring("Step 4: print_banner() OK\n");
+    terminal_writestring("Step 5: About to call print_system_info()\n\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
     // System info
     print_system_info();
+
+    terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
+    terminal_writestring("Step 6: print_system_info() OK\n");
+    terminal_writestring("Step 7: About to call check_cpu_features()\n\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     // CPU features
     check_cpu_features();

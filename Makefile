@@ -4,7 +4,7 @@
 
 # Tools
 ASM = nasm
-CC = gcc
+CC = clang-18
 LD = ld
 ASMFLAGS = -f bin
 
