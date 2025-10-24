@@ -12,7 +12,7 @@
 
 ; === CONSTANTS ===
 KERNEL_OFFSET equ 0x1000
-KERNEL_SECTORS equ 64              ; Increased from 15 to 64 (32KB) for larger kernel with profiling
+KERNEL_SECTORS equ 48              ; 48 sectors = 24KB (kernel is ~19KB)
 KERNEL_SIGNATURE equ 0x464C5544    ; "FLUD"
 MAX_RETRIES equ 3
 
@@ -175,47 +175,47 @@ load_kernel:
 ; FUNCTION: load_kernel_lba
 ; ============================================================================
 load_kernel_lba:
-    ; Setup DAP
+    ; Setup DAP (simple, single read)
     mov byte [dap_size], 0x10
     mov byte [dap_reserved], 0
     mov word [dap_sectors], KERNEL_SECTORS
     mov word [dap_offset], KERNEL_OFFSET
     mov word [dap_segment], 0
-    mov dword [dap_lba_low], 9  ; Stage1=1 sector, Stage2=8 sectors, Kernel starts at 9
+    mov dword [dap_lba_low], 9
     mov dword [dap_lba_high], 0
-    
+
     mov si, dap_size
     mov ah, 0x42
     mov dl, [BOOT_DRIVE]
     int 0x13
-    
+
     ret
 
 ; ============================================================================
 ; FUNCTION: load_kernel_chs
 ; ============================================================================
 load_kernel_chs:
-    mov ah, 0x02
-    mov al, KERNEL_SECTORS
+    mov ah, 0x02                ; Read
+    mov al, KERNEL_SECTORS      ; Sector count
     mov ch, 0x00                ; Cylinder 0
-    mov cl, 0x0A                ; Sector 10 (9+1, sectors are 1-indexed)
+    mov cl, 0x0A                ; Sector 10 (9+1, CHS is 1-indexed)
     mov dh, 0x00                ; Head 0
     mov dl, [BOOT_DRIVE]
-    mov bx, KERNEL_OFFSET
+    mov bx, KERNEL_OFFSET       ; Destination
     int 0x13
-    
+
     jc .error
-    
-    ; Verify sector count
+
+    ; Verify count (AL contains sectors read)
     cmp al, KERNEL_SECTORS
     jne .verify_error
     clc
     ret
-    
+
 .verify_error:
     mov al, ERR_DISK_VERIFY
     jmp fatal_error
-    
+
 .error:
     stc
     ret
