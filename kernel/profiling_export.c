@@ -258,8 +258,8 @@ int profiling_export_json(const module_manager_t* mgr) {
 }
 
 int profiling_trigger_export(const module_manager_t* mgr) {
-    // Print header
-    serial_puts("\n");
+    // Print header (SERIAL ONLY - no VGA output to avoid mixing)
+    serial_puts("\n\n");
     serial_puts("=== PROFILING DATA EXPORT ===\n");
     serial_puts("Format: JSON\n");
     serial_puts("Timestamp: ");
@@ -273,13 +273,13 @@ int profiling_trigger_export(const module_manager_t* mgr) {
     // Print footer
     serial_puts("--- END JSON ---\n");
     serial_puts("\n");
-    serial_puts("Next steps:\n");
-    serial_puts("1. Save this JSON to a file on the host\n");
-    serial_puts("2. Run: python3 tools/pgo_recompile.py <json_file>\n");
-    serial_puts("3. Script will identify hot modules and recompile with -O2/-O3\n");
+    serial_puts("Workflow:\n");
+    serial_puts("1. Save JSON between BEGIN/END markers to file\n");
+    serial_puts("2. Run: python3 tools/pgo_recompile.py profile.json\n");
+    serial_puts("3. Script identifies hot modules and recompiles with -O2/-O3\n");
     serial_puts("4. Rebuild kernel image with optimized modules\n");
     serial_puts("5. Reboot to load optimized versions\n");
-    serial_puts("\n");
+    serial_puts("\n=== END EXPORT ===\n\n");
 
     return result;
 }
