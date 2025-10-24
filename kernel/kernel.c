@@ -13,6 +13,7 @@
 #include "keyboard.h"
 #include "cxx_runtime.h"
 #include "cxx_test.h"
+#include "jit_allocator_test.h"
 
 // Forward declarations
 extern void* malloc(size_t size);
@@ -185,6 +186,16 @@ void kernel_main(void) {
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     // Wait for user to review C++ test results
+    terminal_writestring("\nPress any key to continue to JIT allocator tests...\n");
+    wait_key();
+    terminal_writestring("\n");
+
+    // Test JIT allocator functionality
+    terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
+    test_jit_allocator();
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    // Wait for user to review JIT allocator test results
     terminal_writestring("\nPress any key to continue to module tests...\n");
     wait_key();
     terminal_writestring("\n");
