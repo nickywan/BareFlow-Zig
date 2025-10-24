@@ -12,8 +12,8 @@
 
 ; === CONSTANTS ===
 KERNEL_OFFSET equ 0x1000
-KERNEL_SECTORS equ 15
-KERNEL_SIGNATURE equ 0x464C5544 ; "FLUD"
+KERNEL_SECTORS equ 64              ; Increased from 15 to 64 (32KB) for larger kernel with profiling
+KERNEL_SIGNATURE equ 0x464C5544    ; "FLUD"
 MAX_RETRIES equ 3
 
 ; Error codes
