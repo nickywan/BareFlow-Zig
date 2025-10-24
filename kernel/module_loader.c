@@ -45,9 +45,13 @@ static uint64_t isqrt64(uint64_t n) {
     uint64_t y = (x + 1) >> 1;
 
     // Newton's method: y = (x + n/x) / 2
-    while (y < x) {
+    // Limit iterations to prevent potential infinite loops
+    int iterations = 0;
+    while (y < x && iterations < 100) {
         x = y;
+        if (x == 0) break;  // Prevent division by zero
         y = (x + udiv64(n, x)) >> 1;
+        iterations++;
     }
 
     return x;
@@ -184,9 +188,15 @@ int module_execute(module_manager_t* mgr, const char* name) {
     mod->call_count++;
     mod->total_cycles += cycles;
 
-    // For variance: sum of (x^2)
-    // We need to be careful with overflow, but for cycle counts it should be ok
-    mod->sum_of_squares += cycles * cycles;
+    // For variance: sum of (x^2) - but avoid overflow by scaling down if needed
+    // Only update if multiplication won't overflow (cycles < 2^32)
+    if (cycles < 0x100000000ULL) {
+        mod->sum_of_squares += cycles * cycles;
+    } else {
+        // For very large cycle counts, use scaled version
+        uint64_t scaled = cycles >> 16;  // Divide by 65536
+        mod->sum_of_squares += (scaled * scaled) << 32;  // Re-scale
+    }
 
     if (cycles < mod->min_cycles) mod->min_cycles = cycles;
     if (cycles > mod->max_cycles) mod->max_cycles = cycles;
@@ -274,13 +284,15 @@ void module_print_stats(module_manager_t* mgr, const char* name) {
         // Visual performance bar (relative to max cycles across all runs)
         terminal_writestring("  Performance:   [");
         uint64_t range = mod->max_cycles - mod->min_cycles;
-        if (range > 0 && mod->max_cycles > 0) {
+        if (range > 0 && mod->max_cycles > 0 && avg >= mod->min_cycles && avg <= mod->max_cycles) {
             // Show where avg sits between min and max
             uint64_t avg_pos = udiv64((avg - mod->min_cycles) * 20, range);
+            if (avg_pos > 20) avg_pos = 20;  // Clamp to max
+
             for (uint32_t i = 0; i < 20; i++) {
                 if (i == (uint32_t)avg_pos) {
                     terminal_writestring("A");  // Average marker
-                } else if (i < avg_pos) {
+                } else if (i < (uint32_t)avg_pos) {
                     terminal_writestring("=");
                 } else {
                     terminal_writestring("-");

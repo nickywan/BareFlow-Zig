@@ -174,6 +174,11 @@ void kernel_main(void) {
     // Initialize VGA terminal
     terminal_initialize();
 
+    // Early boot debug message
+    terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
+    terminal_writestring("[DEBUG] Kernel started successfully!\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
     // Print banner
     print_banner();
 
@@ -197,9 +202,17 @@ void kernel_main(void) {
     terminal_writestring("========================================\n\n");
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
+    terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
+    terminal_writestring("[DEBUG] Initializing module manager...\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
     // Initialize module manager
     module_manager_t module_mgr;
     module_init(&module_mgr);
+
+    terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
+    terminal_writestring("[DEBUG] Module manager initialized OK\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     terminal_setcolor(VGA_YELLOW, VGA_BLACK);
     terminal_writestring("[INIT] Loading embedded modules...\n");
@@ -207,6 +220,10 @@ void kernel_main(void) {
 
     // Load all embedded modules
     int loaded = load_embedded_modules(&module_mgr);
+
+    terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
+    terminal_writestring("[DEBUG] Modules loaded OK\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     terminal_setcolor(VGA_GREEN, VGA_BLACK);
     terminal_writestring("\n[OK] Loaded ");
@@ -218,11 +235,23 @@ void kernel_main(void) {
     // TEST 1: Simple Sum (warm-up)
     // ========================================================================
 
+    terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
+    terminal_writestring("[DEBUG] Starting TEST 1...\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
     terminal_setcolor(VGA_YELLOW, VGA_BLACK);
     terminal_writestring("[TEST 1] Simple Sum Module\n");
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
+    terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
+    terminal_writestring("[DEBUG] About to execute 'sum' module...\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
     int result = module_execute(&module_mgr, "sum");
+
+    terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
+    terminal_writestring("[DEBUG] Module executed OK\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     terminal_writestring("  Result: ");
     print_int(result);
