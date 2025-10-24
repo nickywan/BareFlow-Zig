@@ -19,12 +19,28 @@ SECTIONS
     .rodata : {
         *(.rodata*)
     }
-    
+
+    /* C++ global constructors */
+    .init_array : {
+        __init_array_start = .;
+        KEEP(*(.init_array*))
+        KEEP(*(.ctors*))
+        __init_array_end = .;
+    }
+
+    /* C++ global destructors */
+    .fini_array : {
+        __fini_array_start = .;
+        KEEP(*(.fini_array*))
+        KEEP(*(.dtors*))
+        __fini_array_end = .;
+    }
+
     /* Initialized data */
     .data : {
         *(.data)
     }
-    
+
     /* Uninitialized data */
     .bss : {
         *(.bss)

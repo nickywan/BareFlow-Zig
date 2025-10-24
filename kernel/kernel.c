@@ -11,6 +11,7 @@
 #include "module_loader.h"
 #include "embedded_modules.h"
 #include "keyboard.h"
+#include "cxx_runtime.h"
 
 // Forward declarations
 extern void* malloc(size_t size);
@@ -173,6 +174,9 @@ void check_cpu_features(void) {
 void kernel_main(void) {
     // Initialize VGA terminal
     terminal_initialize();
+
+    // Initialize C++ runtime (for new/delete, global constructors, etc.)
+    cxx_runtime_init();
 
     // VERY VISIBLE boot message - WHITE ON RED
     terminal_setcolor(VGA_WHITE, VGA_RED);
