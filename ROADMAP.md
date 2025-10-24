@@ -14,13 +14,13 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 
 ## Phase 1: JIT Integration & Module System (IN PROGRESS)
 
-### 1.1 JIT Bare-Metal Integration
+### 1.1 Runtime Infrastructure (COMPLETED ✅)
 - [x] Implement minimal C++ runtime for bare-metal
   - [x] Operator new/delete with custom allocator
   - [x] Basic exception handling stubs (or -fno-exceptions)
   - [x] RTTI stubs (or -fno-rtti)
   - [x] Static constructor/destructor support
-- [x] Custom JIT memory allocator (jit_allocator)
+- [x] Custom memory allocator (jit_allocator)
   - [x] Three memory pools (CODE, DATA, METADATA)
   - [x] Aligned allocation support
   - [x] Free-list with block coalescence
@@ -29,54 +29,71 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [x] Chunked LBA reading (8 sectors at a time)
   - [x] Kernel loaded at 0x10000 to avoid bootloader conflict
   - [x] Segment:offset addressing for real mode
-- [ ] Port LLVM LLJIT to bare-metal
-  - [ ] Memory allocator integration
-  - [ ] Symbol resolver for kernel functions
-  - [ ] JIT execution engine initialization
-- [ ] JIT-AOT hybrid system
-  - [ ] Load AOT modules as fallback
-  - [ ] JIT compile hot functions on demand
-  - [ ] Profile-guided optimization thresholds
-- [ ] Benchmark (JIT smoke test): add `matrix_mul` module, capture baseline vs reoptimized cycles
-- [ ] Early auto-optimization loop
-  - [ ] Implement call-count thresholds on `matrix_mul`
-  - [ ] Trigger recompilation at +100/+1000 calls (O0 → O1 → O2)
-  - [ ] Log cycle deltas before/after
-- [ ] Address Codex revue findings
-  - [ ] Implement aligned allocation strategy in `jit_allocator` (padding vs base realign)
-  - [ ] Fix global destructor order in `cxx_runtime` to match Itanium ABI
-  - [ ] Return positive signal on successful `jit_auto_optimize` recompilations
 
-### 1.2 Module System Improvements
+### 1.2 Profile-Guided Optimization System (IN PROGRESS)
+
+**Architecture Decision**: AOT + Offline Recompilation (not bare-metal JIT)
+- Kernel profiles hot functions with cycle-accurate rdtsc
+- Profiling data exported via serial port to host
+- Host uses full LLVM toolchain to recompile with PGO
+- Optimized modules loaded from persistent cache at boot
+- Rationale: Full LLVM in bare-metal requires ~500KB + libc++ (3-6 months work)
+
+**Tasks**:
+- [ ] Profiling Export System
+  - [ ] JSON format for profiling statistics
+  - [ ] Serial port driver (COM1) for data extraction
+  - [ ] Export per-module call counts, cycles, cache stats
+  - [ ] Command interface to trigger export
+- [ ] Optimized Module Cache
+  - [ ] Design cache format (metadata + native code)
+  - [ ] Disk partition/file for persistent storage
+  - [ ] Cache loader at boot with signature verification
+  - [ ] LRU eviction policy for cache management
+- [ ] Offline Recompilation Pipeline
+  - [ ] Python script to parse profiling JSON
+  - [ ] Trigger LLVM recompilation with -O2/-O3 + PGO
+  - [ ] Generate optimized .mod files
+  - [ ] Update cache on disk/image
+- [ ] Benchmark Modules
+  - [ ] Add `matrix_mul` module (dense 64×64 / 128×128)
+  - [ ] Capture baseline vs optimized cycle counts
+  - [ ] Validate profile-guided improvements
+- [ ] Address Allocator Issues
+  - [ ] Implement aligned allocation strategy (padding vs realign)
+  - [ ] Fix unused variable warnings
+
+### 1.3 llvm-libc Integration & Toolchain
+- [ ] Integrate llvm-libc subset (freestanding mode)
+  - [ ] Replace stdlib.c string functions (memcpy, memset, strlen, etc.)
+  - [ ] Add math.h functions for TinyLlama (sin, cos, exp, log, etc.)
+  - [ ] Adapt malloc/free to use jit_allocator backend
+  - [ ] Build with -nostdlib but link llvm-libc objects
+- [ ] CPU Feature Detection Pipeline
+  - [ ] Host scanner: clang -march=native -### to detect features
+  - [ ] Generate build/cpu_profile.json (SSE/AVX/BMI + cache sizes)
+  - [ ] Auto-generate kernel/auto_cpu_flags.mk for Makefile
+  - [ ] Runtime CPUID validation at boot
+  - [ ] Tag benchmark results with CPU profile (e.g., matrix_mul_AVX2)
+- [ ] Host-tuned build workflow
+  - [ ] Script tools/gen_cpu_profile.py for feature detection
+  - [ ] Compile kernel/modules with -march=native on target machine
+  - [ ] Validate llvm-libc API coverage for benchmarks
+  - [ ] Document llvm-libc gaps and workarounds
+
+### 1.4 Module System Improvements
 - [ ] Dynamic module loading from disk
-  - [ ] FAT16/FAT32 filesystem support (read-only)
+  - [ ] FAT16 filesystem support (read-only, minimal)
   - [ ] Module loader from disk sectors
-  - [ ] Module signature verification
-- [ ] LLVM bitcode module support
-  - [ ] Load .bc files from disk
-  - [ ] JIT compile bitcode modules
-  - [ ] Link with kernel runtime
+  - [ ] Module signature verification (SHA256)
 - [ ] Enhanced profiling metrics
-  - [ ] Per-function profiling
+  - [ ] Per-function profiling granularity
   - [ ] Call graph tracking
-  - [ ] Cache hit/miss statistics
-  - [ ] Memory allocation tracking
-- [ ] Benchmark (profiling focus): run `fft_1d` module to validate call-count triggers
-- [ ] Benchmark (memory-bound): run `sha256_stream` module to track throughput gains
-- [ ] Auto-optimization iteration
-  - [ ] Integrate profiling dashboards for bench modules
-  - [ ] Demonstrate improvement timeline (initial vs reoptimized) in logs
-- [ ] Toolchain alignment
-  - [ ] Establish host-side build flow tuned for target CPU (SSE/AVX flags via clang/LLVM 18)
-  - [ ] Integrate llvm-libc snapshot for freestanding builds
-  - [ ] Implement CPU feature detection pipeline (see "CPU Feature Detection Pipeline")
-  - [ ] Script `tools/gen_cpu_profile.py` to emit `build/cpu_profile.json`
-  - [ ] Auto-generate `kernel/auto_cpu_flags.mk` from detected capabilities
-  - [ ] Prototype bench metadata tags (e.g., `matrix_mul_AVX2`) using generated profiles
-- [ ] Resolve Codex revue questions
-  - [ ] Decide alignment policy for allocator fix (document chosen approach)
-  - [ ] Define minimal deliverables for 1.2 (disk modules vs LLVM bitcode)
-  - [ ] Specify target `fluid.img` size and default JIT pool allocations
+  - [ ] Memory allocation per module
+- [ ] Additional benchmark modules
+  - [ ] `fft_1d`: radix-2 FFT (1K samples) - memory stride test
+  - [ ] `sha256_stream`: hash 1MB chunks - memory bandwidth test
+  - [ ] Capture cycle counts and compare pre/post optimization
 
 ## Phase 2: Kernel Extensions
 

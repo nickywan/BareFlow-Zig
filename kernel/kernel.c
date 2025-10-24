@@ -14,6 +14,7 @@
 #include "cxx_runtime.h"
 #include "cxx_test.h"
 #include "jit_allocator_test.h"
+#include "profiling_export.h"
 
 // Forward declarations
 extern void* malloc(size_t size);
@@ -425,6 +426,37 @@ void kernel_main(void) {
 
     module_print_stats(&module_mgr, "primes");
     pause_for_key();
+
+    // ========================================================================
+    // PROFILING DATA EXPORT
+    // ========================================================================
+
+    terminal_setcolor(VGA_CYAN, VGA_BLACK);
+    terminal_writestring("\n========================================\n");
+    terminal_writestring("   PROFILING DATA EXPORT\n");
+    terminal_writestring("========================================\n\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    terminal_writestring("Initializing serial port (COM1)...\n");
+    if (serial_init() == 0) {
+        terminal_setcolor(VGA_GREEN, VGA_BLACK);
+        terminal_writestring("[OK] Serial port initialized (115200 baud)\n\n");
+        terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+        terminal_writestring("Exporting profiling data via serial port...\n");
+        terminal_writestring("(Check serial output for JSON data)\n\n");
+
+        // Export profiling data
+        profiling_trigger_export(&module_mgr);
+
+        terminal_setcolor(VGA_GREEN, VGA_BLACK);
+        terminal_writestring("[OK] Profiling data exported to serial port\n");
+        terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+    } else {
+        terminal_setcolor(VGA_RED, VGA_BLACK);
+        terminal_writestring("[FAIL] Serial port initialization failed\n");
+        terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+    }
 
     // ========================================================================
     // FINAL MESSAGE

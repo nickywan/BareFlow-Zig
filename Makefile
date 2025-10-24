@@ -64,8 +64,8 @@ $(STAGE2_BIN): $(BOOT_DIR)/stage2.asm | $(BUILD_DIR)
 	fi
 	@echo "$(GREEN)✓ Stage 2 built (4096 bytes)$(NC)"
 
-# Build Kernel (ASM entry + C code + stdlib + VGA + Module System + C++ Runtime + JIT Allocator + Tests)
-$(KERNEL_BIN): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdlib.c $(KERNEL_DIR)/vga.c $(KERNEL_DIR)/module_loader.c $(KERNEL_DIR)/jit_allocator.c $(KERNEL_DIR)/jit_allocator_test.c $(KERNEL_DIR)/cxx_runtime.cpp $(KERNEL_DIR)/cxx_test.cpp $(KERNEL_DIR)/linker.ld | $(BUILD_DIR)
+# Build Kernel (ASM entry + C code + stdlib + VGA + Module System + C++ Runtime + JIT Allocator + Profiling Export + Tests)
+$(KERNEL_BIN): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdlib.c $(KERNEL_DIR)/vga.c $(KERNEL_DIR)/module_loader.c $(KERNEL_DIR)/jit_allocator.c $(KERNEL_DIR)/jit_allocator_test.c $(KERNEL_DIR)/profiling_export.c $(KERNEL_DIR)/cxx_runtime.cpp $(KERNEL_DIR)/cxx_test.cpp $(KERNEL_DIR)/linker.ld | $(BUILD_DIR)
 	@echo "$(YELLOW)Building Kernel with Module System and C++ Runtime...$(NC)"
 	# Assemble entry point
 	$(ASM) -f elf32 $(KERNEL_DIR)/entry.asm -o $(BUILD_DIR)/entry.o
@@ -94,6 +94,10 @@ $(KERNEL_BIN): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
 		-c $(KERNEL_DIR)/jit_allocator_test.c -o $(BUILD_DIR)/jit_allocator_test.o
 
+	# Compile profiling export system
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+		-c $(KERNEL_DIR)/profiling_export.c -o $(BUILD_DIR)/profiling_export.o
+
 	# Compile C++ runtime
 	$(CXX) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
 		-fno-exceptions -fno-rtti -fno-threadsafe-statics \
@@ -108,8 +112,8 @@ $(KERNEL_BIN): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 	$(LD) -m elf_i386 -T $(KERNEL_DIR)/linker.ld --oformat binary \
 		$(BUILD_DIR)/entry.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/module_loader.o \
 		$(BUILD_DIR)/vga.o $(BUILD_DIR)/stdlib.o $(BUILD_DIR)/jit_allocator.o \
-		$(BUILD_DIR)/jit_allocator_test.o $(BUILD_DIR)/cxx_runtime.o \
-		$(BUILD_DIR)/cxx_test.o -o $@
+		$(BUILD_DIR)/jit_allocator_test.o $(BUILD_DIR)/profiling_export.o \
+		$(BUILD_DIR)/cxx_runtime.o $(BUILD_DIR)/cxx_test.o -o $@
 	
 	@SIZE=$$(stat -f%z "$@" 2>/dev/null || stat -c%s "$@" 2>/dev/null); \
 	echo "$(GREEN)✓ Kernel built ($$SIZE bytes)$(NC)"
