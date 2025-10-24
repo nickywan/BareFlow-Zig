@@ -15,11 +15,20 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 ## Phase 1: JIT Integration & Module System (IN PROGRESS)
 
 ### 1.1 JIT Bare-Metal Integration
-- [ ] Implement minimal C++ runtime for bare-metal
-  - [ ] Operator new/delete with custom allocator
-  - [ ] Basic exception handling stubs (or -fno-exceptions)
-  - [ ] RTTI stubs (or -fno-rtti)
-  - [ ] Static constructor/destructor support
+- [x] Implement minimal C++ runtime for bare-metal
+  - [x] Operator new/delete with custom allocator
+  - [x] Basic exception handling stubs (or -fno-exceptions)
+  - [x] RTTI stubs (or -fno-rtti)
+  - [x] Static constructor/destructor support
+- [x] Custom JIT memory allocator (jit_allocator)
+  - [x] Three memory pools (CODE, DATA, METADATA)
+  - [x] Aligned allocation support
+  - [x] Free-list with block coalescence
+  - [x] Pool statistics tracking
+- [x] Bootloader support for 64-sector kernel (32KB)
+  - [x] Chunked LBA reading (8 sectors at a time)
+  - [x] Kernel loaded at 0x10000 to avoid bootloader conflict
+  - [x] Segment:offset addressing for real mode
 - [ ] Port LLVM LLJIT to bare-metal
   - [ ] Memory allocator integration
   - [ ] Symbol resolver for kernel functions
