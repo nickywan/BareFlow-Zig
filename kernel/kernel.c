@@ -12,6 +12,7 @@
 #include "embedded_modules.h"
 #include "keyboard.h"
 #include "cxx_runtime.h"
+#include "cxx_test.h"
 
 // Forward declarations
 extern void* malloc(size_t size);
@@ -177,6 +178,16 @@ void kernel_main(void) {
 
     // Initialize C++ runtime (for new/delete, global constructors, etc.)
     cxx_runtime_init();
+
+    // Test C++ runtime functionality
+    terminal_setcolor(VGA_LIGHT_CYAN, VGA_BLACK);
+    test_cxx_runtime();
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    // Wait for user to review C++ test results
+    terminal_writestring("\nPress any key to continue to module tests...\n");
+    wait_key();
+    terminal_writestring("\n");
 
     // VERY VISIBLE boot message - WHITE ON RED
     terminal_setcolor(VGA_WHITE, VGA_RED);
