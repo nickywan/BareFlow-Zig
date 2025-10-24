@@ -25,8 +25,8 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [x] Aligned allocation support
   - [x] Free-list with block coalescence
   - [x] Pool statistics tracking
-- [x] Bootloader support for 64-sector kernel (32KB)
-  - [x] Chunked LBA reading (8 sectors at a time)
+- [x] Bootloader support for 80-sector kernel (40KB)
+  - [x] Chunked LBA reading (8 sectors at a time, 10 iterations)
   - [x] Kernel loaded at 0x10000 to avoid bootloader conflict
   - [x] Segment:offset addressing for real mode
 
@@ -40,11 +40,11 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 - Rationale: Full LLVM in bare-metal requires ~500KB + libc++ (3-6 months work)
 
 **Tasks**:
-- [ ] Profiling Export System
-  - [ ] JSON format for profiling statistics
-  - [ ] Serial port driver (COM1) for data extraction
-  - [ ] Export per-module call counts, cycles, cache stats
-  - [ ] Command interface to trigger export
+- [x] Profiling Export System
+  - [x] JSON format for profiling statistics
+  - [x] Serial port driver (COM1) for data extraction
+  - [x] Export per-module call counts, cycles (min/max/total), code addresses
+  - [x] Automated export at boot (no VGA interference)
 - [ ] Optimized Module Cache
   - [ ] Design cache format (metadata + native code)
   - [ ] Disk partition/file for persistent storage
