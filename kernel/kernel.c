@@ -78,11 +78,13 @@ void print_hex(unsigned int num) {
 }
 
 // Helper to wait for user input
+// TODO: Re-enable for interactive mode
 void pause_for_key(void) {
-    terminal_setcolor(VGA_DARK_GREY, VGA_BLACK);
-    terminal_writestring("\n[Press any key to continue...]\n");
-    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
-    wait_key();
+    // Disabled for automated profiling export
+    // terminal_setcolor(VGA_DARK_GREY, VGA_BLACK);
+    // terminal_writestring("\n[Press any key to continue...]\n");
+    // terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+    // wait_key();
 }
 
 // ============================================================================
@@ -187,8 +189,9 @@ void kernel_main(void) {
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     // Wait for user to review C++ test results
-    terminal_writestring("\nPress any key to continue to JIT allocator tests...\n");
-    wait_key();
+    // TODO: Re-enable for interactive mode
+    // terminal_writestring("\nPress any key to continue to JIT allocator tests...\n");
+    // wait_key();
     terminal_writestring("\n");
 
     // Test JIT allocator functionality
@@ -197,8 +200,9 @@ void kernel_main(void) {
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     // Wait for user to review JIT allocator test results
-    terminal_writestring("\nPress any key to continue to module tests...\n");
-    wait_key();
+    // TODO: Re-enable for interactive mode
+    // terminal_writestring("\nPress any key to continue to module tests...\n");
+    // wait_key();
     terminal_writestring("\n");
 
     // VERY VISIBLE boot message - WHITE ON RED
