@@ -144,6 +144,9 @@ void test_llvm_modules(void) {
     // Print final statistics
     llvm_module_print_stats(&mgr, fib_id);
 
+    // Export PGO profile data
+    llvm_module_export_all_profiles(&mgr);
+
     serial_puts("\n");
     serial_puts("========================================================================\n");
     serial_puts("=== DEMO COMPLETE ===\n");
@@ -155,7 +158,8 @@ void test_llvm_modules(void) {
     serial_puts("  ✓ Adaptive optimization: O0 → O1 transition at 100 calls\n");
     serial_puts("  ✓ All code executed natively without interpretation\n");
     serial_puts("  ✓ Zero-downtime optimization switching\n");
+    serial_puts("  ✓ PGO profile data exported for recompilation\n");
     serial_puts("\n");
-    serial_puts("Next step: Full LLVM ORC JIT integration for runtime compilation\n");
+    serial_puts("Next step: Use PGO data to recompile modules with profile guidance\n");
     serial_puts("\n");
 }

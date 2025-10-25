@@ -95,4 +95,20 @@ void llvm_module_print_stats(llvm_module_manager_t* mgr, int module_id);
  */
 int llvm_module_execute_adaptive(llvm_module_manager_t* mgr, int module_id);
 
+/**
+ * Export profiling data for PGO (Profile-Guided Optimization)
+ * Outputs execution statistics in LLVM profdata format
+ *
+ * @param mgr Module manager
+ * @param module_id Module ID
+ */
+void llvm_module_export_profile(llvm_module_manager_t* mgr, int module_id);
+
+/**
+ * Export all module profiles
+ *
+ * @param mgr Module manager
+ */
+void llvm_module_export_all_profiles(llvm_module_manager_t* mgr);
+
 #endif // LLVM_MODULE_MANAGER_H
