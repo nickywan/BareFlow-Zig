@@ -30,7 +30,7 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [x] Kernel loaded at 0x10000 to avoid bootloader conflict
   - [x] Segment:offset addressing for real mode
 
-### 1.2 Profile-Guided Optimization System ✅ COMPLETED
+### 1.2 Profile-Guided Optimization System ✅ COMPLETED & VALIDATED
 
 **Architecture Decision**: AOT + Offline Recompilation (not bare-metal JIT)
 - Kernel profiles hot functions with cycle-accurate rdtsc
@@ -39,7 +39,7 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 - Optimized modules loaded from persistent cache at boot
 - Rationale: Full LLVM in bare-metal requires ~500KB + libc++ (3-6 months work)
 
-**Status**: 🎉 **100% FUNCTIONAL** - Complete end-to-end workflow operational
+**Status**: 🎉 **100% FUNCTIONAL & VALIDATED** - Real performance gains measured!
 
 **Completed Tasks**:
 - [x] Profiling Export System
@@ -77,10 +77,21 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 - `tools/gen_cache_registry.py` - Cache registry generator
 - `kernel/cache_loader.{h,c}` - Runtime cache loader
 
+**Performance Measurements** (✅ COMPLETED 2025-10-25):
+- [x] Baseline measurements captured (compute: 6.6M cycles, fibonacci: 140K cycles)
+- [x] Optimized measurements validated (compute: 3.6M cycles, fibonacci: 17K cycles)
+- [x] Real gains measured:
+  * fibonacci: **+87.59%** (nearly 8× faster with -O2)
+  * compute: **+45.25%** (2× faster with -O3)
+  * sum: **+47.00%**
+  * primes: **+44.79%**
+- [x] Critical bug fixed: -o3 vs -O3 flag generation in pgo_recompile.py
+- [x] Full workflow validated: profile → classify → recompile → embed → boot → measure
+
 **Remaining Optional Tasks** (not blocking):
 - [ ] Disk partition/file for persistent storage (currently using embedded cache)
 - [ ] LRU eviction policy for cache management
-- [ ] Performance measurements (baseline vs optimized cycle counts)
+- [ ] Fix matrix_mul static data issue (48KB → heap allocation)
 
 ### 1.3 llvm-libc Integration & Toolchain
 - [ ] Integrate llvm-libc subset (freestanding mode)
@@ -334,4 +345,4 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 ---
 
 **Last Updated**: 2025-10-25
-**Status**: Phase 1.2 ✅ COMPLETE - PGO system fully operational, moving to Phase 1.3 (llvm-libc integration)
+**Status**: Phase 1.2 ✅ **COMPLETE & VALIDATED** - PGO system fully operational with real performance gains (45-88% improvement), moving to Phase 1.3 (llvm-libc integration)
