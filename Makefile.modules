@@ -2,6 +2,7 @@
 # These modules will be loaded dynamically in the bare-metal kernel
 
 CC = clang-18
+LD = ld
 OBJCOPY = objcopy
 
 # Flags for 32-bit bare-metal compilation
@@ -28,8 +29,13 @@ $(MODULE_DIR)/%.o: $(MODULE_DIR)/%.c
 	@echo "Compiling $<..."
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Link with module linker script to ensure correct layout
+$(MODULE_DIR)/%.elf: $(MODULE_DIR)/%.o $(MODULE_DIR)/module.ld
+	@echo "Linking $@..."
+	$(LD) -m elf_i386 -T $(MODULE_DIR)/module.ld $< -o $@
+
 # Extract native code to .mod file
-$(MODULE_DIR)/%.mod: $(MODULE_DIR)/%.o
+$(MODULE_DIR)/%.mod: $(MODULE_DIR)/%.elf
 	@echo "Extracting module $@..."
 	$(OBJCOPY) -O binary $< $@
 	@echo "  Size: $$(stat -c%s $@) bytes"
@@ -48,7 +54,7 @@ list-modules:
 # Clean
 clean:
 	@echo "Cleaning modules..."
-	rm -f $(MODULE_DIR)/*.o $(MODULE_DIR)/*.mod
+	rm -f $(MODULE_DIR)/*.o $(MODULE_DIR)/*.elf $(MODULE_DIR)/*.mod
 	@echo "✓ Clean complete"
 
 # Help

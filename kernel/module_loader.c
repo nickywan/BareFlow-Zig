@@ -206,6 +206,32 @@ int module_execute(module_manager_t* mgr, const char* name) {
     return result;
 }
 
+int module_install_override(module_manager_t* mgr, const module_header_t* header, size_t size) {
+    (void)size;
+    if (!mgr || !header) {
+        return -1;
+    }
+
+    module_profile_t* existing = module_find(mgr, header->name);
+    if (!existing) {
+        return module_load(mgr, header, size);
+    }
+
+    uintptr_t entry_val = (uintptr_t)header->entry_point;
+    if (entry_val < 0x100000) {
+        existing->code_ptr = (void*)((const uint8_t*)header + entry_val);
+    } else {
+        existing->code_ptr = header->entry_point;
+    }
+    existing->code_size = header->code_size;
+    existing->call_count = 0;
+    existing->total_cycles = 0;
+    existing->sum_of_squares = 0;
+    existing->min_cycles = UINT64_MAX;
+    existing->max_cycles = 0;
+    return 1;
+}
+
 void module_print_stats(module_manager_t* mgr, const char* name) {
     module_profile_t* mod = module_find(mgr, name);
     if (!mod) {

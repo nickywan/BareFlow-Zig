@@ -50,22 +50,22 @@ int serial_init(void) {
     // Enable RTS/DSR
     outb(COM1_MODEM_CTRL, 0x0B);
 
-    // Test serial port (loopback test)
+    // Attempt loopback test, but tolerate failures (some virtual UARTs ignore it)
     outb(COM1_MODEM_CTRL, 0x1E);  // Enable loopback mode
     outb(COM1_DATA, 0xAE);         // Send test byte
-    // Wait until data is available or timeout
     int timeout = 100000;
     while (!(inb(COM1_LINE_STATUS) & 0x01) && --timeout) {
         // spin until data ready
     }
     if (timeout == 0 || inb(COM1_DATA) != 0xAE) {
-        // Serial port failed loopback test
-        return -1;
+        outb(COM1_MODEM_CTRL, 0x0F);
+        return 0;
     }
 
     // Disable loopback, enable normal operation
     outb(COM1_MODEM_CTRL, 0x0F);
 
+    serial_puts("[serial] init ok\n");
     return 0;
 }
 
@@ -74,9 +74,12 @@ static int serial_is_transmit_empty(void) {
 }
 
 void serial_putchar(char c) {
-    // Wait for transmit buffer to be empty
-    while (!serial_is_transmit_empty())
-        ;
+    int timeout = 100000;
+    while (!serial_is_transmit_empty()) {
+        if (--timeout == 0) {
+            return;
+        }
+    }
 
     outb(COM1_DATA, c);
 }

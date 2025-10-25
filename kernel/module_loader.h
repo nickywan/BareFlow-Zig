@@ -66,6 +66,9 @@ module_profile_t* module_find(module_manager_t* mgr, const char* name);
 typedef int (*module_func_t)(void);
 int module_execute(module_manager_t* mgr, const char* name);
 
+// Install or override a module from cached binary
+int module_install_override(module_manager_t* mgr, const module_header_t* header, size_t size);
+
 // Get module statistics
 void module_print_stats(module_manager_t* mgr, const char* name);
 void module_print_all_stats(module_manager_t* mgr);

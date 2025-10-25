@@ -66,6 +66,33 @@ def parse_proc_cpuinfo() -> Dict[str, str]:
     return data
 
 
+def detect_qemu_environment() -> bool:
+    """Detect if we're running in QEMU (virtual environment)."""
+    # Check for QEMU in CPU model
+    procinfo = parse_proc_cpuinfo()
+    model = procinfo.get("model name", "").lower()
+    if "qemu" in model or "virtual" in model:
+        return True
+
+    # Check for virtualization flags
+    lscpu = parse_lscpu()
+    virt = lscpu.get("hypervisor vendor", "").lower()
+    if "qemu" in virt or "kvm" in virt:
+        return True
+
+    # Check /sys/devices/virtual/dmi/id/product_name
+    try:
+        product_path = pathlib.Path("/sys/devices/virtual/dmi/id/product_name")
+        if product_path.exists():
+            product = product_path.read_text().strip().lower()
+            if "qemu" in product or "bochs" in product or "virtual" in product:
+                return True
+    except (OSError, IOError):
+        pass
+
+    return False
+
+
 def gather_cpu_info() -> Dict[str, object]:
     info = {}
     lscpu = parse_lscpu()
@@ -166,22 +193,22 @@ def write_cpu_flags_mk(path: pathlib.Path, target_cpu: Optional[str], mattr: Lis
         "# Do not edit manually.",
         "",
         f"CPU_MARCH ?= {target_cpu or 'native'}",
-        f"CPU_MATTR ?= {','.join(mattr) if mattr else ''}",
         "",
         "CFLAGS_CPU := -march=$(CPU_MARCH)",
-        "ifneq ($(strip $(CPU_MATTR)),)",
-        "CFLAGS_CPU += -mattr=$(CPU_MATTR)",
-        "endif",
         "CXXFLAGS_CPU := $(CFLAGS_CPU)",
         "",
-        f"CPU_PROFILE_TAG ?= {profile_tag}",
+        f"CPU_PROFILE_TAG := {profile_tag}",
         "",
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def build_profile_tag(model: str, target_cpu: Optional[str], mattr: List[str]) -> str:
+def build_profile_tag(model: str, target_cpu: Optional[str], mattr: List[str], is_virtual: bool = False) -> str:
+    # For QEMU/virtual environments, use simple architecture-based tag
+    if is_virtual or target_cpu == "i686":
+        return "i686"
+
     model_slug = re.sub(r"[^a-z0-9]+", "-", model.lower()).strip("-")
     cpu = target_cpu or "native"
     feats = "-".join(f.replace("+", "p").replace("-", "m") for f in mattr[:5])
@@ -208,10 +235,34 @@ def main() -> int:
         action="store_true",
         help="Pretty-print JSON output",
     )
+    parser.add_argument(
+        "--force-i686",
+        action="store_true",
+        help="Force i686 for QEMU compatibility (32-bit bare-metal safe)",
+    )
+    parser.add_argument(
+        "--auto-detect-qemu",
+        action="store_true",
+        default=True,
+        help="Auto-detect QEMU and use i686 (default: enabled)",
+    )
     args = parser.parse_args()
 
     cpu_info = gather_cpu_info()
     clang_info = parse_clang_features()
+
+    # Detect QEMU and override to i686 for 32-bit compatibility
+    is_qemu = detect_qemu_environment() if args.auto_detect_qemu else False
+    force_i686 = args.force_i686 or is_qemu
+
+    if force_i686:
+        print("⚠️  Detected QEMU/virtual environment or --force-i686")
+        print("→  Using i686 for maximum 32-bit compatibility")
+        print("→  Skylake/AVX instructions cause Invalid Opcode in QEMU")
+        # Override target_cpu to i686
+        if isinstance(clang_info, dict):
+            clang_info["target_cpu"] = "i686"
+            clang_info["target_features"] = []  # Clear advanced features
 
     timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
     hostname = socket.gethostname()
@@ -219,6 +270,7 @@ def main() -> int:
         cpu_info.get("model", "cpu"),
         clang_info.get("target_cpu") if isinstance(clang_info, dict) else None,
         clang_info.get("target_features", []) if isinstance(clang_info, dict) else [],
+        is_virtual=force_i686  # Use simple tag for QEMU/i686
     )
 
     payload = {
