@@ -95,13 +95,13 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 - [x] Fix matrix_mul static data issue (.bss → .data section with initialized arrays)
 - [ ] Debug matrix_mul module loading/execution (kernel boots but module doesn't execute)
 
-### 1.3 llvm-libc Integration & Toolchain ⚙️ IN PROGRESS
+### 1.3 llvm-libc Integration & Toolchain ✅ COMPLETED
 - [x] Integrate llvm-libc subset (freestanding mode)
   - [x] Replace stdlib.c string functions (memcpy, memset, strlen, strcmp)
   - [x] Build system (Makefile.llvmlibc)
   - [x] Link kernel with libllvmlibc.a
-  - [ ] Add math.h functions for TinyLlama (sin, cos, exp, log, etc.)
-  - [ ] Adapt malloc/free to use jit_allocator backend
+  - [x] Add math.h functions (sin, cos, exp, log with Taylor series)
+  - [ ] Adapt malloc/free to use jit_allocator backend (Phase 1.4)
 - [ ] CPU Feature Detection Pipeline
   - [x] Host scanner: clang -march=native -### to detect features
   - [x] Generate build/cpu_profile.json (SSE/AVX/BMI + cache sizes)

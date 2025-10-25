@@ -15,7 +15,11 @@ OBJ_DIR = $(BUILD_DIR)/obj
 SOURCES = $(LLVMLIBC_DIR)/memcpy.c \
           $(LLVMLIBC_DIR)/memset.c \
           $(LLVMLIBC_DIR)/strlen.c \
-          $(LLVMLIBC_DIR)/strcmp.c
+          $(LLVMLIBC_DIR)/strcmp.c \
+          $(LLVMLIBC_DIR)/sin.c \
+          $(LLVMLIBC_DIR)/cos.c \
+          $(LLVMLIBC_DIR)/exp.c \
+          $(LLVMLIBC_DIR)/log.c
 
 OBJECTS = $(patsubst $(LLVMLIBC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SOURCES))
 
