@@ -42,13 +42,14 @@ static int g_tests_total = 0;
 static int test_init_shutdown(void) {
     TEST_START("Allocator initialization and shutdown");
 
-    int result = jit_allocator_init(64 * 1024, 128 * 1024, 32 * 1024);
+    // Use larger pool sizes with more RAM available (64MB)
+    int result = jit_allocator_init(256 * 1024, 512 * 1024, 128 * 1024);
     TEST_ASSERT(result == 0, "Initialization failed");
 
     jit_allocator_shutdown();
 
     // Re-initialize for other tests
-    result = jit_allocator_init(64 * 1024, 128 * 1024, 32 * 1024);
+    result = jit_allocator_init(256 * 1024, 512 * 1024, 128 * 1024);
     TEST_ASSERT(result == 0, "Re-initialization failed");
 
     TEST_PASS();
@@ -168,12 +169,15 @@ static int test_pool_statistics(void) {
 static int test_different_pools(void) {
     TEST_START("Allocation from different pools");
 
+    terminal_writestring("  Allocating from CODE pool...\n");
     void* code_ptr = jit_alloc(512, JIT_POOL_CODE, 0);
     TEST_ASSERT(code_ptr != NULL, "CODE pool allocation failed");
 
+    terminal_writestring("  Allocating from DATA pool...\n");
     void* data_ptr = jit_alloc(512, JIT_POOL_DATA, 0);
     TEST_ASSERT(data_ptr != NULL, "DATA pool allocation failed");
 
+    terminal_writestring("  Allocating from METADATA pool...\n");
     void* meta_ptr = jit_alloc(512, JIT_POOL_METADATA, 0);
     TEST_ASSERT(meta_ptr != NULL, "METADATA pool allocation failed");
 
