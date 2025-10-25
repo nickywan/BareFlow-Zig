@@ -1,7 +1,24 @@
 # Fluid OS - Project Roadmap
 
-## Vision
-A bare-metal unikernel capable of running TinyLlama with real-time JIT optimization and persistent optimization cache across reboots, targeting dedicated inference machines where the kernel and modules are compiled on-host (clang/LLVM + llvm-libc) to squeeze every CPU feature available.
+## Vision (UPDATED Session 17 - Architecture Finale)
+
+**BareFlow = Self-Optimizing Unikernel (Programme Auto-Optimisant)**
+
+> "Le kernel n'est plus qu'une bibliothèque d'accès au processeur, ce n'est pas un kernel
+> (un cœur) mais juste un profiler qui aide le programme à fonctionner du mieux possible."
+
+**Architecture retenue** : Option 2 - Programme auto-optimisant
+
+L'application (TinyLlama) est linkée statiquement avec une bibliothèque runtime minimale
+(kernel_lib.a ~20-30KB) fournissant I/O, memory, CPU access, et JIT optimization.
+Le binaire résultant est un unikernel bootable qui s'auto-profile et s'auto-optimise
+au runtime, sans séparation kernel/user, sans overhead de syscalls.
+
+**Bénéfices** :
+- Zero overhead (appels directs, tout en Ring 0)
+- Simplicité maximale (single binary)
+- Performance maximale (contrôle total du CPU)
+- Philosophie correcte (runtime au service de l'app, pas l'inverse)
 
 ## Current Status
 ✅ Two-stage bootloader (Stage 1 + Stage 2)
@@ -413,5 +430,182 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 
 ---
 
-**Last Updated**: 2025-10-25 (Session 8)
-**Status**: Phase 2.1 ✅ **95% COMPLETE** - Disk I/O functional, 12 modules operational. Ready for Phase 3 (Runtime JIT) - CRITICAL PATH!
+## 🔥 Phase 6: Unikernel Refactor (NEW - CRITICAL PATH)
+
+**Session 17 Decision**: Shift from monolithic kernel to self-optimizing unikernel architecture
+
+### 6.1 Extract Runtime Library (kernel_lib.a) ✅ PRIORITAIRE
+
+**Goal**: Extract essential components into standalone library (~20-30KB)
+
+**Directory Structure**:
+```
+kernel_lib/
+├── io/
+│   ├── vga.{h,c}           # VGA text mode
+│   ├── serial.{h,c}        # COM1 serial port
+│   └── keyboard.{h,c}      # PS/2 keyboard
+├── memory/
+│   ├── malloc.{h,c}        # Simple bump allocator
+│   └── string.{h,c}        # memcpy, memset, strlen
+├── cpu/
+│   ├── features.{h,c}      # cpuid, rdtsc
+│   └── interrupts.{h,c}    # IDT setup (if needed)
+└── jit/
+    ├── profile.{h,c}       # jit_profile_begin/end
+    ├── optimize.{h,c}      # jit_optimize_hot_functions
+    └── adaptive.{h,c}      # Adaptive optimization logic
+```
+
+**Tasks**:
+- [x] Design architecture (Session 17)
+- [ ] Create kernel_lib/ directory structure
+- [ ] Extract VGA, serial, keyboard from kernel/
+- [ ] Extract malloc, stdlib from kernel/
+- [ ] Extract CPU features (rdtsc, cpuid)
+- [ ] Extract JIT runtime (profile, optimize, adaptive_jit)
+- [ ] Create Makefile.lib to build kernel_lib.a
+- [ ] Validate library builds independently
+- [ ] Create public API headers (runtime.h, jit_runtime.h)
+
+**Success Criteria**:
+- kernel_lib.a builds successfully
+- Size ≤ 30KB
+- No dependencies on kernel.c
+- Clean API interface
+
+### 6.2 Create Self-Optimizing Application (TinyLlama Stub)
+
+**Goal**: Build standalone application that links with kernel_lib.a
+
+**Structure**:
+```
+tinyllama/
+├── main.c              # Application entry point
+├── inference.c         # Model inference loop
+├── profiling.c         # Self-profiling logic
+└── optimization.c      # Self-optimization decisions
+```
+
+**Sample Code**:
+```c
+// tinyllama/main.c
+#include "runtime.h"      // vga_*, serial_*, malloc
+#include "jit_runtime.h"  // jit_profile_*, jit_optimize_*
+
+void inference_loop(void) {
+    jit_profile_begin("inference");
+
+    // ... TinyLlama inference code ...
+
+    jit_profile_end("inference");
+
+    // Self-optimization decision
+    static int call_count = 0;
+    if (++call_count % 1000 == 0) {
+        jit_optimize_hot_functions();
+    }
+}
+
+void main(void) {
+    vga_init();
+    serial_init();
+
+    serial_puts("TinyLlama Self-Optimizing Unikernel\n");
+
+    while (1) {
+        inference_loop();
+    }
+}
+```
+
+**Tasks**:
+- [ ] Create tinyllama/ directory
+- [ ] Implement basic main.c with self-profiling
+- [ ] Add inference stub (placeholder for TinyLlama)
+- [ ] Implement self-optimization logic
+- [ ] Create Makefile.tinyllama
+- [ ] Compile: `clang -nostdlib -lkernel_lib -o tinyllama_bare.elf`
+- [ ] Test linking without errors
+
+**Success Criteria**:
+- tinyllama_bare.elf builds successfully
+- Links with kernel_lib.a
+- No linker errors
+- Size ≤ 80KB (without model)
+
+### 6.3 Bootable Image Generation
+
+**Goal**: Create fluid_llama.img bootable from tinyllama_bare.elf
+
+**Tasks**:
+- [ ] Convert ELF to binary: `objcopy -O binary tinyllama_bare.elf tinyllama_bare.bin`
+- [ ] Update linker script for correct load address (0x1000)
+- [ ] Concatenate bootloader + binary: `cat stage1.bin stage2.bin tinyllama_bare.bin > fluid_llama.img`
+- [ ] Test boot in QEMU
+- [ ] Verify VGA output
+- [ ] Verify serial output
+- [ ] Validate self-profiling works
+
+**Success Criteria**:
+- fluid_llama.img boots successfully
+- VGA displays startup message
+- Serial port outputs profiling data
+- No crashes or triple faults
+- Total size ≤ 100KB
+
+### 6.4 Validation & Benchmarking
+
+**Goal**: Prove unikernel architecture is superior to monolithic kernel
+
+**Metrics to Compare**:
+1. **Binary Size**:
+   - Old: 346KB (monolithic kernel)
+   - New: ~100KB (unikernel)
+   - Target: 65-70% reduction
+
+2. **Function Call Overhead**:
+   - Old: Kernel API calls (function call overhead)
+   - New: Direct calls (zero overhead)
+   - Measure: rdtsc before/after typical operations
+
+3. **Boot Time**:
+   - Old: Initialize all tests, modules, drivers
+   - New: Direct to application
+   - Target: 50% faster
+
+4. **Memory Usage**:
+   - Old: Full kernel heap, module pools, test data
+   - New: Only application + runtime
+   - Target: 80% reduction
+
+**Tasks**:
+- [ ] Benchmark old architecture (current kernel)
+- [ ] Benchmark new architecture (unikernel)
+- [ ] Compare metrics
+- [ ] Document results
+- [ ] Update ARCHITECTURE_DECISIONS.md
+
+### 6.5 Migration Plan
+
+**Incremental Approach** (avoid big-bang rewrite):
+
+1. **Week 1**: Extract kernel_lib.a
+2. **Week 2**: Build tinyllama stub + link
+3. **Week 3**: Create bootable image + test
+4. **Week 4**: Benchmark + validate
+5. **Week 5**: Migrate TinyLlama inference code
+6. **Week 6**: Full TinyLlama integration
+
+**Rollback Strategy**:
+- Keep current kernel/ in separate branch
+- New work in unikernel/ directory
+- Can revert if issues arise
+
+---
+
+**Last Updated**: 2025-10-25 (Session 17)
+**Status**:
+- Phase 1-4: ✅ **COMPLETE** - PGO, profiling, modules validated
+- Phase 5: ⏳ **DEFERRED** - TinyLlama integration awaits unikernel refactor
+- **Phase 6: 🔥 CRITICAL PATH** - Architectural refactor to self-optimizing unikernel

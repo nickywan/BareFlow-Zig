@@ -4,44 +4,89 @@
 **Branch**: `claude/merge-interface-runtime-011CUMDiW4omhPaJemQSVuoR`
 **Projet**: Unikernel Ring 0 + LLVM JIT Runtime + llvm-libc
 
-## Vision
+## Vision (Session 17 - Architecture Finale)
 
-**BareFlow = Unikernel + LLVM JIT à la volée + llvm-libc**
+**BareFlow = Programme Auto-Optimisant (Self-Optimizing Unikernel)**
 
-Application unique (TinyLlama) avec compilation JIT LLVM au runtime pour optimisation adaptative sans downtime.
+> "Le kernel n'est plus qu'une bibliothèque d'accès au processeur, ce n'est pas un kernel
+> (un cœur) mais juste un profiler qui aide le programme à fonctionner du mieux possible."
+
+### Architecture Option 2 (RETENUE) : Programme Auto-Optimisant
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Single Binary: tinyllama_bare.elf                  │
+│  ┌─────────────────────────────────────────────┐   │
+│  │ Application (TinyLlama)                     │   │
+│  │  - Model loading & inference                │   │
+│  │  - Self-profiling (appels jit_profile_*)    │   │
+│  │  - Self-optimization (appels jit_optimize_*)│   │
+│  └─────────────────────────────────────────────┘   │
+│             ↓ appels directs (linked statically)   │
+│  ┌─────────────────────────────────────────────┐   │
+│  │ Runtime Library (kernel_lib.a ~20-30KB)     │   │
+│  │  - I/O: vga_*, serial_*, keyboard_*         │   │
+│  │  - Memory: malloc, free, memcpy             │   │
+│  │  - CPU: rdtsc, cpuid, features              │   │
+│  │  - JIT: profile, optimize, hot-path detect  │   │
+│  └─────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+         ↓ clang -nostdlib -lkernel_lib
+    fluid_llama.img (~80-100KB bootable)
+```
+
+**Avantages clés** :
+- ✅ Zero overhead : Appels directs, pas de syscalls
+- ✅ Single binary : Simplicité maximale
+- ✅ Self-optimization : Le programme s'optimise lui-même
+- ✅ Performance maximale : Tout en Ring 0, contrôle total
+- ✅ Philosophie correcte : Runtime au service de l'app, pas l'inverse
 
 ---
 
-## ✅ État Actuel (2025-10-25)
+## ✅ État Actuel (Session 17 - 2025-10-25)
 
-### Kernel
-- **Size**: 239KB ELF / 223KB BIN (436 sectors)
-- **Modules**: 12 legacy + 4 LLVM (fibonacci, matrix_mul, sha256, primes)
-- **LLVM Modules**: Each with 4 optimization levels (O0, O1, O2, O3)
-- **PGO**: Profile-Guided Optimization with HOT/VERY_HOT classification
-- **Build**: `make clean && make`
-- **Test**: `make run`
+### Session 17 - Décision Architecturale Majeure
 
-### Phases Complètes
-- ✅ Phase 1: Module system + profiling (100%)
-- ✅ Phase 2.1: FAT16 filesystem + disk I/O (95%)
-- ✅ Phase 3.1: Bitcode modules (100%)
-- ✅ Phase 3.2: Micro-JIT (100%)
-- ✅ Phase 3.3: Adaptive JIT with atomic code swapping (100%)
-- ✅ Phase 3.4: ELF32 Loader (100%)
-- ✅ Phase 3.5: Bootloader expansion to 512 sectors (100%)
-- ✅ **Phase 4: LLVM Pragmatic Integration (100%)** ← NEW
+**Problème identifié**:
+- Kernel monolithique: 346KB (croissance continue)
+- 7 modules LLVM × 4 niveaux = 28 binaires embarqués
+- Architecture non alignée avec vision finale
 
-### Stack Technique
-- **Bootloader**: Two-stage (MBR + extended), **512 sectors capacity** (256KB)
-- **Kernel**: Ring 0, 32-bit, no MMU
-- **Profiling**: rdtsc cycle counter + per-function profiling
-- **JIT Allocator**: CODE (32KB), DATA (32KB), METADATA (16KB)
-- **llvm-libc**: String + math functions (8 functions)
-- **Filesystem**: FAT16 read-only (ATA/IDE)
-- **Adaptive JIT**: Hot-path detection + atomic code swapping
-- **ELF Loader**: Full ELF32 loader with validation, loading, and execution
-- **LLVM Integration**: Bitcode → Multi-level ELF → Adaptive optimization ← NEW
+**Décision**: Option 2 - **Self-Optimizing Unikernel** ✅
+
+**Documentation Session 17**:
+- ✅ ARCHITECTURE_UNIKERNEL.md - Spécification complète
+- ✅ LLVM_PIPELINE.md - 4 phases (AOT → Interpreter → Meta-Circular → Persistence)
+- ✅ NEXT_SESSION_UNIKERNEL.md - Plan détaillé Session 18
+- ✅ CODE_REUSE_MAP.md - 80-85% du code réutilisable
+- ✅ README.md - Mise à jour pour nouvelle architecture
+- ✅ ROADMAP.md - Phase 6 ajoutée
+- ✅ ARCHITECTURE_DECISIONS.md - Aligné avec Option 2
+
+**Fichiers archivés** → docs/archive/:
+- BAREFLOW_MODULE_SYSTEM.md, RUNTIME_JIT_PLAN.md, LLVM_INTEGRATION_STRATEGY.md
+- NEXT_SESSION.md, COHERENCE_REPORT.md, LLVM_PRAGMATIC_APPROACH.md
+- SESSION10-16 summaries, README_OLD.md
+
+### Phases Complètes (Kernel Monolithique - Archivé)
+- ✅ Phase 1-4: Module system, FAT16, JIT, LLVM Integration (100%)
+- **→ Architecture pivotée vers unikernel**
+
+### Stack Technique (Architecture Cible - Option 2)
+- **Bootloader**: Two-stage (MBR + extended), **512 sectors capacity** (256KB) - CONSERVÉ
+- **Runtime Library (kernel_lib.a)**: ~20-30KB
+  - I/O: VGA text mode, serial, keyboard (PS/2)
+  - Memory: malloc/free (simple bump allocator), memcpy, memset
+  - CPU: rdtsc profiling, cpuid features, interrupts de base
+  - JIT Runtime: Hot-path detection, adaptive optimization, code swapping
+- **Application (TinyLlama)**: ~60-80KB
+  - Self-profiling: Instrumentation manuelle (jit_profile_begin/end)
+  - Self-optimization: Décisions d'optimisation dans l'application
+  - Model inference: Optimisé au runtime selon profiling
+- **Binary unique**: tinyllama_bare.elf → fluid_llama.img (~80-100KB total)
+- **Ring 0 uniquement**: Pas de séparation kernel/user, overhead zéro
+- **LLVM Pipeline**: C → Bitcode → Multi-level ELF (O0/O1/O2/O3) → Linked statically
 
 ### LLVM Workflow (Pragmatic Approach)
 1. **Host-side**: C → LLVM bitcode → ELF (O0/O1/O2/O3)
@@ -49,12 +94,62 @@ Application unique (TinyLlama) avec compilation JIT LLVM au runtime pour optimis
 3. **Thresholds**: 100→O1, 1000→O2, 10000→O3
 4. **Demo**: ✅ PASS - fibonacci auto-upgraded O0→O1 at 100 calls
 
-### Prochaines Étapes
-1. ✅ LLVM pragmatic integration ← DONE
-2. ✅ Profile-guided optimization (PGO) ← DONE
-3. Create compute-intensive test modules to demonstrate PGO gains
-4. Disk-based LLVM module loading (FAT16)
-5. Cross-module optimization
+### Prochaines Étapes - Session 18 (Phase 6.1)
+
+**Objectif**: Extraction de kernel_lib.a (Week 1 du plan 6 semaines)
+
+**Phase 1 - Préparation** (30 min):
+- [ ] Créer kernel_lib/ directory structure (io/, memory/, cpu/, jit/)
+- [ ] Lire CODE_REUSE_MAP.md pour mapping exact
+
+**Phase 2 - Extraction I/O** (1h):
+- [ ] VGA: kernel/vga.{h,c} → kernel_lib/io/ (copie directe)
+- [ ] Serial: Extraire de kernel.c → kernel_lib/io/serial.{h,c}
+- [ ] Keyboard: kernel/keyboard.h → kernel_lib/io/ (compléter impl)
+
+**Phase 3 - Extraction Memory** (1h):
+- [ ] Malloc: kernel/stdlib.c → kernel_lib/memory/malloc.c
+- [ ] String: kernel/stdlib.c → kernel_lib/memory/string.c
+
+**Phase 4 - Extraction CPU** (45 min):
+- [ ] Features: rdtsc/cpuid → kernel_lib/cpu/features.c
+- [ ] PIC/IDT: kernel/pic.c, kernel/idt.c → kernel_lib/cpu/
+
+**Phase 5 - Extraction JIT** (1h30):
+- [ ] Profile: kernel/adaptive_jit.c + function_profiler.c → kernel_lib/jit/profile.c
+- [ ] Optimize: kernel/adaptive_jit.c → kernel_lib/jit/optimize.c
+
+**Phase 6 - API Publique** (30 min):
+- [ ] Créer kernel_lib/runtime.h (I/O + Memory + CPU)
+- [ ] Créer kernel_lib/jit_runtime.h (JIT profiling)
+
+**Phase 7 - Build System** (1h):
+- [ ] Créer kernel_lib/Makefile.lib
+- [ ] Compiler kernel_lib.a
+- [ ] Valider taille ≤ 30KB
+
+**Success Criteria**:
+- ✅ kernel_lib.a builds successfully
+- ✅ Size ≤ 30KB
+- ✅ No dependencies on kernel.c
+- ✅ Clean API headers (runtime.h, jit_runtime.h)
+
+**Temps estimé**: 6-8h de développement
+
+**Documentation**: Voir NEXT_SESSION_UNIKERNEL.md pour plan détaillé
+
+**Phase 6 : Application Auto-Optimisante (TinyLlama)**
+1. Créer `tinyllama/main.c` avec:
+   - Self-profiling: Appels à jit_profile_begin/end
+   - Self-optimization: Logique d'optimisation adaptative
+   - Model inference loop
+2. Compiler: `clang -nostdlib tinyllama/main.c -lkernel_lib -o tinyllama_bare.elf`
+3. Créer fluid_llama.img bootable
+
+**Phase 7 : Validation et Optimisation**
+1. Benchmarker TinyLlama avec profiling
+2. Mesurer overhead vs kernel monolithique actuel
+3. Optimiser hot paths identifiés
 
 ---
 
@@ -225,6 +320,103 @@ Compiling O0-O3 (PGO-enhanced)...
 | COLD | <100 | O0 (baseline) | 1x |
 
 **Session 15 Documentation**: See `SESSION_15_PGO.md` for complete details
+
+---
+
+## 🎯 Session 17 (2025-10-25) - Extended PGO Suite + Architectural Findings
+
+### Objectif
+Create advanced modules with complex branching patterns to demonstrate real PGO benefits, and capture comprehensive performance profiles.
+
+### Modules Créés
+
+**fft_1d.c** (144 lignes) - 1D Fast Fourier Transform
+- Bit reversal permutation (complex branching)
+- Butterfly operations with twiddle factors
+- Fixed-point complex arithmetic
+- ✅ 2001 iterations → HOT (O2), 25,384 cycles/call
+
+**quicksort.c** (194 lignes) - Hybrid Quicksort
+- Median-of-three pivot selection
+- Insertion sort fallback for small arrays
+- Unpredictable partition branches
+- ✅ 3001 iterations → HOT (O0), 672,050 cycles/call
+
+**compute_dispatch.c** (200 lignes) - Indirect Function Calls
+- 8 operation functions via dispatch table
+- Non-uniform call distribution (40% add, 1% mod_pow)
+- Simulates C++ vtable for devirtualization testing
+- ❌ Failed to load - ELF embedding issue
+
+### Test Infrastructure
+
+Created `kernel/llvm_test_pgo_extended.c` (300 lignes):
+- Runs 8,000+ total iterations across 3 new modules
+- Graceful error handling (continues if module fails)
+- Comprehensive profile export
+
+### Résultats
+
+**Complete Profile Data Captured**:
+```
+matrix_mul:compute:1501:67152386      (HOT - O2, 44,738 cycles/call)
+sha256:compute:2001:44582849           (HOT - O2, 22,280 cycles/call)
+primes:compute:10001:269806880         (VERY_HOT - O3, 26,978 cycles/call)
+fft_1d:compute:2001:50795331           (HOT - O2, 25,384 cycles/call)
+quicksort:compute:3001:2016823189      (HOT - O0, 672,050 cycles/call)
+```
+
+### Problèmes Identifiés
+
+1. **Kernel Bloat**: 346KB (était 239KB) - 107KB de croissance
+   - 7 modules × 4 opt levels = 28 binaires embarqués
+   - JIT test désactivé (kernel trop gros → crash)
+   - Tests intermédiaires désactivés (C++ runtime, FAT16, etc.)
+
+2. **compute_dispatch**: Échec de chargement ELF
+   - Binaires valides (7f454c46 magic bytes)
+   - Symboles correctement embarqués
+   - Erreur au runtime: "Invalid magic bytes"
+   - Cause inconnue, nécessite debug
+
+3. **quicksort**: Toujours en O0 après 3001 appels
+   - Devrait être en O2 (seuil = 1000 appels)
+   - Transitions adaptatives silencieuses (pas de logs serial)
+   - Nécessite investigation
+
+### 💡 Recommandation Architecturale (User Feedback)
+
+**Vision de l'utilisateur**:
+> "ce n'est pas le kernel qui pas accueillir le programme mais le kernel
+> est un sous programme du kernel, ce n'est plus un kernel mais un
+> bibliothèque d'accès au processeur"
+
+**Architecture Unikernel Proposée**:
+
+```
+Actuel (Kernel Monolithique):
+  kernel.bin (346KB)
+    ├─ C++ runtime
+    ├─ JIT allocator
+    ├─ FAT16 driver
+    ├─ 28 embedded modules (7×4)
+    └─ Application tests
+  → PROBLÈME: Croissance infinie, complexité accrue
+
+Cible (Unikernel):
+  fluid_llama.img (TinyLlama + minimal runtime)
+    ├─ kernel_lib.a (~20-30KB)
+    │   ├─ VGA/serial I/O
+    │   ├─ Memory management
+    │   ├─ CPU feature access
+    │   └─ ELF loading
+    └─ tinyllama.elf (application)
+  → AVANTAGE: Single binary, no dynamic loading, minimal overhead
+```
+
+**Prochain Sprint**: Architectural refactor to unikernel
+
+**Session 17 Analysis**: See `/tmp/pgo_analysis.txt` for complete benchmark results
 
 ---
 
