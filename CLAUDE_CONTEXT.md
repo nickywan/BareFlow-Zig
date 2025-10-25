@@ -1,8 +1,8 @@
 # CLAUDE CONTEXT - BareFlow Development
 
 **Date**: 2025-10-26
-**Branch**: `claude/merge-interface-runtime-011CUMDiW4omhPaJemQSVuoR`
-**Projet**: Self-Optimizing Unikernel with LLVM Runtime
+**Branch**: `feat/true-jit-unikernel`
+**Projet**: True Self-Optimizing Unikernel with JIT Runtime
 
 ## Vision Architecturale
 
@@ -45,7 +45,29 @@
 
 ---
 
-## ✅ État Actuel (Session 20 - 2025-10-26)
+## ✅ État Actuel (Phase 2 - 2025-10-26)
+
+### IMPORTANT: État du Projet
+
+**Ce qui est FAIT** ✅:
+- ✅ Unikernel de base (28KB: 13KB app + 15KB runtime)
+- ✅ Système de profiling cycle-accurate (rdtsc)
+- ✅ Bootloader 2-stage fonctionnel
+- ✅ I/O complet (VGA, Serial, Keyboard)
+- ✅ Memory management (malloc/free)
+- ✅ Métriques AOT baseline (voir ci-dessous)
+
+**Ce qui RESTE à faire** 🚧:
+- ⚠️ **JIT Runtime** - Port du runtime LLVM auto-optimisant
+- ⚠️ **Self-Optimization** - Recompilation à chaud basée sur profiling
+- ⚠️ **Code Swapping** - Remplacement atomique de fonctions
+- ⚠️ **Persistence** - Sauvegarde des optimisations
+- ⚠️ **TinyLlama Model** - Intégration du modèle de langage
+
+> **Note**: Les performances actuelles sont des **BASELINE AOT** (Ahead-Of-Time).
+> Les comparaisons JIT vs AOT seront possibles après implémentation du runtime.
+
+---
 
 ### Session 20 - Testing & Validation ✅ COMPLÈTE
 
@@ -96,6 +118,59 @@ cd tinyllama
 make clean && make
 qemu-system-i386 -drive file=tinyllama.img,format=raw -serial stdio
 ```
+
+---
+
+### 📊 AOT Baseline Metrics (Phase 2)
+
+**IMPORTANT**: Ces métriques servent de **référence** pour les comparaisons futures avec le JIT.
+
+#### Binary Size (Ahead-Of-Time Compilation)
+```
+TinyLlama binary:  13,304 bytes (13KB)
+Kernel library:    15,490 bytes (15KB)
+Total unikernel:   28,794 bytes (28KB)
+
+Old monolithic:   328,604 bytes (321KB)
+Size reduction:   92%
+```
+
+#### Boot & Execution Timing (QEMU, cycles)
+```
+Initialization:   3,146,383 cycles (~3.1M)
+Test 1 (Fib×10):  8,271,883 cycles (~8.3M)
+Test 2 (Sum×100): 1,527,162 cycles (~1.5M)
+Test 3 (Prime×5): 1,648,157 cycles (~1.6M)
+Total execution: 16,353,646 cycles (~16.4M)
+```
+
+#### Function Call Overhead (Direct, Inline)
+```
+10,000 inline calls: 241,131 cycles
+Average per call:    24 cycles/call
+
+Note: Appels directs, pas de syscall overhead
+```
+
+#### Per-Function Profiling (AOT-compiled, -O2)
+```
+fibonacci(10):
+  - calls=10, avg=32,638 cycles, min=6,235, max=267,864
+  - Variation: 43× (min→max) due to cache effects
+
+sum_to_n(1000):
+  - calls=100, avg=549 cycles, min=174, max=19,960
+  - Variation: 115× (cache cold start)
+
+count_primes(100):
+  - calls=5, avg=50,451 cycles, min=10,088, max=209,608
+  - Variation: 21× (nested loops, branch mispredictions)
+```
+
+**Objectif JIT (à venir)** :
+- Réduire variations (profiling → recompilation ciblée)
+- Améliorer avg cycles (hot-path optimization)
+- Overhead JIT <5% (recompilation amortie sur N appels)
 
 ---
 
@@ -196,39 +271,74 @@ qemu-system-i386 -drive file=tinyllama.img,format=raw -serial stdio
 
 ---
 
-## 🎯 Prochaines Étapes - Session 20
+## 🎯 Prochaines Étapes - JIT Runtime Implementation
 
-### Objectif: Validation et Benchmarking
+### Phase 3: Port du Runtime JIT Auto-Optimisant
 
-**Phase 1 - Test Boot Complet** (1h):
-1. Tester boot QEMU avec output VGA
-2. Capturer output serial complet
-3. Valider profiling data (JSON export si ajouté)
-4. Vérifier cycles counts cohérents
+**OBJECTIF**: Porter le runtime LLVM dans l'unikernel pour activer la self-optimization.
 
-**Phase 2 - Benchmark vs Monolithique** (1h):
-1. Mesurer boot time (stage1 → main)
-2. Comparer taille binaire (28KB vs 346KB)
-3. Mesurer overhead function calls (direct vs syscall simulation)
-4. Documenter dans PERFORMANCE_COMPARISON.md
+#### Étape 1: Analyse de l'existant (Semaine 3)
+1. **Auditer kernel/jit_llvm18.cpp** (ancien monolithique)
+   - Identifier dépendances LLVM (OrcJIT, ExecutionSession)
+   - Lister dépendances C++ stdlib (std::vector, std::string)
+   - Analyser memory footprint (~500KB+ avec LLVM)
 
-**Phase 3 - Optimisation Hot Paths** (1h30):
-1. Analyser cycle counts par fonction
-2. Identifier fonctions >1000 cycles/call
-3. Optimiser manuellement (unrolling, inlining)
-4. Re-profiler et mesurer gains
+2. **Définir contraintes bare-metal**
+   - Pas de C++ exceptions (`-fno-exceptions`)
+   - Custom allocator pour LLVM (heap dedicated)
+   - Static linking LLVM libs (libLLVM.a)
+   - Target i686 uniquement
 
-**Phase 4 - Documentation** (30 min):
-1. Mettre à jour README.md avec nouvelle architecture
-2. Créer BUILD_GUIDE.md pour tinyllama
-3. Documenter API runtime.h et jit_runtime.h
-4. Créer diagramme architecture finale
+3. **Design nouveau JIT runtime**
+   - `kernel_lib/jit/runtime_llvm.{h,c}` - C interface
+   - `kernel_lib/jit/runtime_llvm_impl.cpp` - LLVM wrapper
+   - API: `jit_compile()`, `jit_optimize()`, `jit_swap_function()`
 
-**Success Criteria**:
-- ✅ TinyLlama boot avec output complet
-- ✅ Profiling stats affichés (call counts, cycles)
-- ✅ Performance report généré
-- ✅ Documentation complète
+#### Étape 2: Minimal JIT Implementation (Semaine 4)
+1. **Static LLVM build pour bare-metal**
+   ```bash
+   cmake -DLLVM_TARGETS_TO_BUILD=X86 \
+         -DLLVM_ENABLE_RTTI=OFF \
+         -DLLVM_ENABLE_EH=OFF \
+         -DCMAKE_BUILD_TYPE=MinSizeRel
+   ```
+
+2. **Custom allocator**
+   - `jit_heap_init()` avec pool dédié (1-2MB)
+   - Override `operator new/delete` pour LLVM
+
+3. **Proof-of-concept: Recompile fibonacci**
+   - Profiling détecte >100 calls
+   - Génère LLVM IR optimisé (-O3)
+   - Swap atomique du code
+
+#### Étape 3: Integration & Testing (Semaine 5)
+1. **Mesurer overhead JIT**
+   - Boot time avec LLVM (+X cycles?)
+   - Memory footprint (+XMB?)
+   - Recompilation time par fonction
+
+2. **Benchmark AOT vs JIT**
+   - Comparer avec baseline AOT (voir métriques ci-dessus)
+   - Target: >20% speedup sur hot paths après recompilation
+   - Acceptable: <10% overhead global
+
+3. **Persistence layer**
+   - Sauver IR optimisé sur disque (FAT16)
+   - Reload au prochain boot (skip recompilation)
+
+#### Étape 4: TinyLlama Model Integration (Semaine 6+)
+1. Load model weights (.bin file)
+2. Implement inference loop
+3. Profile et optimize attention layers
+4. Target: <100ms inference time
+
+### Success Criteria
+- ⚠️ JIT runtime fonctionnel (compile + swap)
+- ⚠️ Speedup >20% vs AOT sur fibonacci après 100 calls
+- ⚠️ Overhead <10% sur total execution time
+- ⚠️ Binary size <500KB (LLVM static linked)
+- ⚠️ Boot time <5s (QEMU)
 
 ---
 

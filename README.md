@@ -1,6 +1,6 @@
-# BareFlow - Self-Optimizing Unikernel
+# BareFlow - True Self-Optimizing Unikernel
 
-**Programme Auto-Optimisant pour TinyLlama**
+**True JIT Unikernel - Programme Auto-Optimisant**
 
 > "Le kernel n'est plus qu'une bibliothèque d'accès au processeur, ce n'est pas un kernel
 > (un cœur) mais juste un profiler qui aide le programme à fonctionner du mieux possible."
@@ -9,35 +9,62 @@
 
 ## 🎯 Vision
 
-BareFlow est un **unikernel auto-optimisant** : un binaire unique (~100KB) qui combine
-l'application (TinyLlama) avec une bibliothèque runtime minimale (kernel_lib.a ~20-30KB)
-pour exécuter de l'inférence LLM bare-metal avec optimisation JIT au runtime.
+BareFlow est un **vrai unikernel auto-optimisant** : un binaire unique (28KB baseline, <500KB avec JIT)
+qui combine l'application (TinyLlama) avec une bibliothèque runtime minimale (kernel_lib.a 15KB)
+pour exécuter bare-metal avec **optimisation JIT LLVM au runtime**.
 
 **Pas de kernel traditionnel**. Pas de séparation kernel/user. Pas de syscalls.
-Seulement une application qui s'auto-profile et s'auto-optimise.
+Une application qui s'auto-profile, se recompile à chaud et s'optimise en temps réel.
+
+### État Actuel (Branch: feat/true-jit-unikernel)
+
+✅ **Phase 1-2 COMPLÈTE**: Unikernel de base + Profiling
+- Unikernel fonctionnel (28KB: 13KB app + 15KB runtime)
+- Profiling cycle-accurate (rdtsc)
+- Métriques AOT baseline documentées
+
+⚠️ **Phase 3 EN COURS**: JIT Runtime LLVM
+- Port du runtime auto-optimisant
+- Recompilation à chaud
+- Code swapping atomique
 
 ---
 
 ## 🏗️ Architecture
 
+### Phase 1-2 (AOT Baseline) ✅ ACTUELLE
 ```
 ┌─────────────────────────────────────────────────────┐
-│  fluid_llama.img (~100KB bootable)                  │
+│  tinyllama.img (10MB bootable)                      │
 │  ┌─────────────────────────────────────────────┐   │
-│  │ TinyLlama Application                       │   │
-│  │  - Model loading & inference                │   │
+│  │ TinyLlama Application (13KB)                │   │
+│  │  - Demo functions (fibonacci, sum, primes)  │   │
 │  │  - Self-profiling (jit_profile_*)           │   │
-│  │  - Self-optimization (jit_optimize_*)       │   │
+│  │  - AOT-compiled (-O2)                       │   │
 │  └─────────────────────────────────────────────┘   │
-│             ↓ direct calls (zero overhead)         │
+│             ↓ direct calls (24 cycles/call)        │
 │  ┌─────────────────────────────────────────────┐   │
-│  │ Runtime Library (kernel_lib.a ~20-30KB)     │   │
+│  │ Runtime Library (kernel_lib.a 15KB)         │   │
 │  │  - I/O: VGA, serial, keyboard               │   │
-│  │  - Memory: malloc, string functions         │   │
-│  │  - CPU: rdtsc, cpuid, features              │   │
-│  │  - JIT: profiling, optimization             │   │
+│  │  - Memory: malloc, memcpy, string           │   │
+│  │  - CPU: rdtsc, cpuid, PIC, IDT              │   │
+│  │  - JIT: Profiling (cycle-accurate)          │   │
 │  └─────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────┘
+```
+
+### Phase 3 (JIT Runtime) ⚠️ EN COURS
+```
+┌─────────────────────────────────────────────────────┐
+│  Ajout prévu: LLVM JIT Runtime (~450KB)             │
+│  ┌─────────────────────────────────────────────┐   │
+│  │  - jit_compile(): Génère IR optimisé        │   │
+│  │  - jit_optimize(): Recompile à chaud        │   │
+│  │  - jit_swap_function(): Swap atomique       │   │
+│  │  - Custom allocator (1-2MB heap LLVM)       │   │
+│  └─────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+Target: >20% speedup sur hot paths, <10% overhead global
 ```
 
 ---
@@ -66,37 +93,78 @@ BareFlow-LLVM/
 │   ├── runtime.h           # Public API (I/O + Memory + CPU)
 │   ├── jit_runtime.h       # Public API (JIT)
 │   └── Makefile.lib        # Build kernel_lib.a
-├── tinyllama/              # ← NEW: Self-optimizing app
-│   ├── main.c              # Entry point
-│   ├── inference.c         # Model inference
-│   ├── profiling.c         # Self-profiling
-│   ├── optimization.c      # Self-optimization
-│   └── Makefile.tinyllama  # Build tinyllama_bare.elf
+├── tinyllama/              # ← NEW: Unikernel app (Phase 1-2)
+│   ├── entry.asm           # Entry point avec signature FLUD
+│   ├── main.c              # Demo profiling (fib, sum, primes)
+│   ├── linker.ld           # Linker script (0x10000)
+│   └── Makefile            # Build tinyllama_bare.bin + .img
 └── kernel/                 # ← OLD: Monolithic kernel (archived)
+    ├── jit_llvm18.cpp      # TODO: Port vers kernel_lib/jit/
     └── ...
 ```
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Phase 1-2 - AOT Baseline)
 
-### Build Runtime Library
+### Build Everything
 
 ```bash
+# 1. Build runtime library
 cd kernel_lib
-make -f Makefile.lib
-# → kernel_lib.a (~20-30KB)
+make
+# → kernel_lib.a (15KB)
+
+# 2. Build unikernel application
+cd ../tinyllama
+make rebuild
+# → tinyllama_bare.bin (13KB)
+# → tinyllama.img (10MB bootable)
 ```
 
-### Build Application
+### Run in QEMU
 
 ```bash
 cd tinyllama
-make -f Makefile.tinyllama
-# → tinyllama_bare.elf (~80-100KB)
+make run
+# Ou pour voir output serial:
+qemu-system-i386 -drive file=tinyllama.img,format=raw -serial stdio
 ```
 
-### Create Bootable Image
+### Expected Output
+
+```
+[tinyllama] TinyLlama Unikernel v0.1 - Self-Profiling Demo
+[tinyllama] Initializing JIT profiler...
+
+[BENCH] 10000 calls: 241131 cycles (24 cycles/call)
+
+fibonacci: calls=10, avg=32638, min=6235, max=267864
+sum_to_n: calls=100, avg=549, min=174, max=19960
+count_primes: calls=5, avg=50451, min=10088, max=209608
+
+=== PERFORMANCE TIMING ===
+[TIMING] Initialization:  3146383 cycles
+[TIMING] Test 1 (Fib):    8271883 cycles
+[TIMING] Test 2 (Sum):    1527162 cycles
+[TIMING] Test 3 (Primes): 1648157 cycles
+[TIMING] Total execution: 16353646 cycles
+```
+
+---
+
+## 📊 AOT Baseline Metrics
+
+Ces métriques servent de **référence** pour les comparaisons JIT futures:
+
+- **Binary size**: 28KB (92% réduction vs 321KB monolithic)
+- **Function call overhead**: 24 cycles/call (inline, direct)
+- **Boot time**: ~3.1M cycles initialization
+- **Total execution**: ~16.4M cycles (3 tests)
+
+---
+
+## 🔧 Next: Build Bootable Image (Legacy)
 
 ```bash
 objcopy -O binary tinyllama_bare.elf tinyllama_bare.bin
