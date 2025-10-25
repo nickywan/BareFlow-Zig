@@ -116,6 +116,57 @@ static const module_header_t primes_header = {
 };
 
 // ============================================================================
+// EMBEDDED MODULE: fft_1d (stub - will be replaced by cache)
+// ============================================================================
+
+__attribute__((noinline, used))
+static int module_fft_1d(void) {
+    return 0;  // Stub - real implementation in cache
+}
+
+static const module_header_t fft_1d_header = {
+    .magic = MODULE_MAGIC,
+    .name = "fft_1d",
+    .entry_point = (void*)module_fft_1d,
+    .code_size = 1668,
+    .version = 1
+};
+
+// ============================================================================
+// EMBEDDED MODULE: sha256 (stub - will be replaced by cache)
+// ============================================================================
+
+__attribute__((noinline, used))
+static int module_sha256(void) {
+    return 0;  // Stub - real implementation in cache
+}
+
+static const module_header_t sha256_header = {
+    .magic = MODULE_MAGIC,
+    .name = "sha256",
+    .entry_point = (void*)module_sha256,
+    .code_size = 1848,
+    .version = 1
+};
+
+// ============================================================================
+// EMBEDDED MODULE: matrix_mul (stub - will be replaced by cache)
+// ============================================================================
+
+__attribute__((noinline, used))
+static int module_matrix_mul(void) {
+    return 0;  // Stub - real implementation in cache
+}
+
+static const module_header_t matrix_mul_header = {
+    .magic = MODULE_MAGIC,
+    .name = "matrix_mul",
+    .entry_point = (void*)module_matrix_mul,
+    .code_size = 3920,
+    .version = 1
+};
+
+// ============================================================================
 // MODULE REGISTRY
 // ============================================================================
 
@@ -124,6 +175,9 @@ static const module_header_t* embedded_modules[] = {
     &simple_sum_header,
     &compute_header,
     &primes_header,
+    &fft_1d_header,
+    &sha256_header,
+    &matrix_mul_header,
     NULL
 };
 
