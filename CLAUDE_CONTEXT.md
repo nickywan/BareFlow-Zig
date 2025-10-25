@@ -2,7 +2,89 @@
 
 **Date**: 2025-10-25
 **Branch**: `claude/merge-interface-runtime-011CUMDiW4omhPaJemQSVuoR`
-**Last Session**: Session 8 - Autonomous Development & Runtime JIT Planning
+**Last Session**: Session 9 - Bitcode Module System & Micro-JIT Foundation
+
+---
+
+## 🔥 Session 9 (2025-10-25 Evening) - Bitcode Module System
+
+### ✅ Completed (Phase 3.1 - 60% Done)
+
+**Focus**: Runtime JIT foundation with bitcode modules
+
+1. **Userspace JIT Validated** ✅
+   - Tested `make -f Makefile.jit test-interface`
+   - LLVM 18 JIT works: 150 iterations, auto-reoptimization
+   - Proves concept, but 500KB too heavy for kernel
+
+2. **Bitcode Module Format** ✅
+   - `kernel/bitcode_module.{h,c}`: Complete implementation
+   - Header: 128 bytes (magic, name, entry, size, opt level)
+   - API: `bitcode_load()`, `bitcode_validate()`, `bitcode_free()`
+
+3. **Bitcode Wrapper Tool** ✅
+   - `tools/wrap_bitcode.py`: Wraps LLVM .bc with header
+   - Usage: `--input module.bc --output wrapped.bc --name X --entry Y`
+   - Tested with fibonacci: O0-O3 all compile
+
+4. **Micro-JIT Architecture** ✅
+   - `kernel/micro_jit.h`: Lightweight alternative (10KB vs 500KB)
+   - Direct x86 instruction emission
+   - Operations: MOV, ADD, SUB, CMP, JMP, RET
+   - Patterns: loops, fibonacci, sum
+
+5. **Test Bitcode Modules** ✅
+   - `modules/bc_fibonacci.c`: Freestanding version
+   - Compiled at O0/O1/O2/O3 levels
+   - Sizes: 2256-2472 bytes raw, ~2400 bytes wrapped
+
+### Technical Decisions
+
+**Micro-JIT vs Full LLVM**:
+- Micro-JIT: 10KB, manual x86, fast compile
+- Full LLVM: 500KB, full optimizer, slow compile
+- **Choice**: Start with Micro-JIT for PoC
+
+**Bitcode Format**:
+```c
+bitcode_header_t (128 bytes):
+  magic:      "LLBC" (0x4C4C4243)
+  name:       char[32]
+  entry:      char[64]
+  size:       uint32_t
+  version:    uint32_t
+  opt_level:  uint32_t (0-3)
+  reserved:   uint32_t[2]
+```
+
+### Files Created
+- `kernel/bitcode_module.{h,c}`
+- `kernel/micro_jit.h`
+- `tools/wrap_bitcode.py`
+- `modules/bc_fibonacci.c`
+- `SESSION_9_PROGRESS.md`
+
+### Next Session Tasks
+
+**Priority 1: Implement Micro-JIT**
+- `kernel/micro_jit.c`: x86 instruction emitters
+- Test: Generate "ret 42" and execute
+- Implement fibonacci pattern
+
+**Priority 2: Integration**
+- Add bitcode_module to Makefile
+- Load bitcode from disk (FAT16)
+- JIT compile and execute
+
+**Priority 3: Hot-Path**
+- Use function_profiler for triggers
+- Recompile at 100/1000 calls
+- Atomic code swap
+
+### Commits
+```
+78300ad feat(jit): Phase 3.1 - Bitcode module system foundation
+```
 
 ---
 
