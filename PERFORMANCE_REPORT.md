@@ -147,13 +147,29 @@ static int mat_a[16][16] = {{1}};  // Initialized (non-zero!)
 
 **Key Learning**: **All modules with static/global variables MUST use initialized data**, otherwise .bss won't be included in .mod file!
 
-## Status
+## Latest Validation (2025-10-25 - Phase 2 Complete)
 
-✅ **PGO System**: Fully functional and validated
-✅ **Module Compilation**: Working with correct -O2/-O3 flags
-✅ **Performance Measurement**: **COMPLETE** - Real gains measured!
-✅ **Bug Fix #1**: Critical -o3 vs -O3 issue resolved
-✅ **Bug Fix #2**: .bss section issue resolved (modules must use .data)
-⚠️  **matrix_mul**: Embedded but not executing (needs module loading debug)
-📋 **Next Steps**: Debug module loading, proceed to Phase 1.3 (llvm-libc)
+**PGO Workflow Re-validated with 4 working modules:**
+
+```
+Module          Optimized Cycles    Optimization Level
+========================================================
+fibonacci              17,985        -O1
+sum                   135,101        -O1
+compute             3,279,136        -O3
+primes                380,918        -O2
+```
+
+**System Status:**
+- ✅ PGO pipeline: profile → classify → recompile → embed → boot
+- ✅ Optimizations applied: fibonacci (O1), sum (O1), compute (O3), primes (O2)
+- ✅ All modules executing successfully
+- ⚠️  fft_1d/sha256: Added to codebase, need cache integration
+- ⚠️  matrix_mul: .bss fixed but not executing (loading issue)
+
+**Infrastructure Complete:**
+- Phase 1: Bootloader, PGO, llvm-libc, benchmarks ✅
+- Phase 2.1: IDT, exceptions, PIC, interrupts ✅
+
+📋 **Next Steps**: Integrate fft/sha256 into cache workflow, validate full 6-module PGO
 

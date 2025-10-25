@@ -1,0 +1,48 @@
+{
+  "format_version": "1.0",
+  "timestamp_cycles": 1527895287,
+  "total_calls": 13,
+  "num_modules": 4,
+  "modules": [
+    {
+      "name": "fibonacci",
+      "calls": 1,
+      "total_cycles": 17985,
+      "min_cycles": 17985,
+      "max_cycles": 17985,
+      "code_address": "0x00019E90",
+      "code_size": 0,
+      "loaded": true
+    },
+    {
+      "name": "sum",
+      "calls": 1,
+      "total_cycles": 135101,
+      "min_cycles": 135101,
+      "max_cycles": 135101,
+      "code_address": "0x00019F60",
+      "code_size": 0,
+      "loaded": true
+    },
+    {
+      "name": "compute",
+      "calls": 10,
+      "total_cycles": 3279136,
+      "min_cycles": 258200,
+      "max_cycles": 937007,
+      "code_address": "0x00019D10",
+      "code_size": 0,
+      "loaded": true
+    },
+    {
+      "name": "primes",
+      "calls": 1,
+      "total_cycles": 380918,
+      "min_cycles": 380918,
+      "max_cycles": 380918,
+      "code_address": "0x00019ED0",
+      "code_size": 0,
+      "loaded": true
+    }
+  ]
+}
