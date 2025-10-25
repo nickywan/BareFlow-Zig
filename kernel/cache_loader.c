@@ -15,17 +15,20 @@ struct cache_iter_ctx {
 };
 
 static void cache_install_callback(const char* name, const unsigned char* data, unsigned int size, void* ctx_ptr) {
-    (void)name;
     struct cache_iter_ctx* ctx = (struct cache_iter_ctx*)ctx_ptr;
     if (!data || size < sizeof(module_header_t)) {
-        cache_log("Skipping malformed cache entry\n");
+        cache_log("Skipping malformed cache entry: ");
+        cache_log(name);
+        cache_log("\n");
         return;
     }
 
     const module_header_t* header = (const module_header_t*)data;
 
     if (header->magic != MODULE_MAGIC) {
-        cache_log("Invalid module magic, skipping\n");
+        cache_log("Invalid module magic for: ");
+        cache_log(name);
+        cache_log("\n");
         return;
     }
 
@@ -34,13 +37,19 @@ static void cache_install_callback(const char* name, const unsigned char* data, 
 
     int rc = module_install_override(ctx->mgr, header, size);
     if (rc == 1) {
-        cache_log("Replaced embedded module with cached version\n");
+        cache_log("Replaced embedded module '");
+        cache_log(name);
+        cache_log("' with cached version\n");
         ctx->loaded++;
     } else if (rc == 0) {
-        cache_log("Loaded cached module\n");
+        cache_log("Loaded new cached module '");
+        cache_log(name);
+        cache_log("'\n");
         ctx->loaded++;
     } else {
-        cache_log("Failed to install cached module\n");
+        cache_log("Failed to install cached module '");
+        cache_log(name);
+        cache_log("'\n");
     }
 }
 
