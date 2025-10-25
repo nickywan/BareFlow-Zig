@@ -12,7 +12,7 @@
 
 ; === CONSTANTS ===
 KERNEL_OFFSET equ 0x10000           ; Load at 64KB to avoid bootloader area
-KERNEL_SECTORS equ 128             ; 128 sectors = 64KB (kernel with 9 modules is ~50KB)
+KERNEL_SECTORS equ 512             ; 512 sectors = 256KB (for LLVM module loading)
 KERNEL_SIGNATURE equ 0x464C5544    ; "FLUD"
 MAX_RETRIES equ 3
 
@@ -188,11 +188,13 @@ load_kernel:
 ; FUNCTION: load_kernel_lba
 ; ============================================================================
 load_kernel_lba:
-    ; Use simple approach: read 8 sectors at a time, 16 times (128 sectors total)
-    mov cx, 16                      ; 16 iterations (128 sectors = 64KB)
+    ; Read 8 sectors at a time, 64 times (512 sectors total = 256KB)
+    ; Strategy: Increment segment every 16 iterations to avoid 64KB offset overflow
+    mov cx, 64                      ; 64 iterations (512 sectors = 256KB)
     mov bx, 0                       ; Starting offset (0)
     mov ax, 0x1000                  ; Starting segment (0x1000:0x0000 = 0x10000)
     mov di, 9                       ; Starting LBA (low word)
+    mov byte [lba_iter_count], 0    ; Iteration counter for segment advancement
 
 .loop:
     push cx                         ; Save loop counter
@@ -219,6 +221,19 @@ load_kernel_lba:
     add di, 8                       ; Next LBA (8 sectors forward)
     add bx, 8 * 512                 ; Next destination (8 sectors * 512 bytes = 4096)
 
+    ; Check if we've done 16 iterations (64KB worth)
+    inc byte [lba_iter_count]
+    cmp byte [lba_iter_count], 16
+    jl .no_segment_advance
+
+    ; Reset offset and advance segment by 64KB (0x1000)
+    mov byte [lba_iter_count], 0
+    xor bx, bx                      ; Reset offset to 0
+    pop ax                          ; Get current segment
+    add ax, 0x1000                  ; Advance by 64KB
+    push ax                         ; Save updated segment
+
+.no_segment_advance:
     pop ax                          ; Restore segment
     pop cx                          ; Restore loop counter
     loop .loop
@@ -512,6 +527,7 @@ dap_lba_high:   dd 0
 BOOT_DRIVE:             db 0
 lba_available:          db 0
 retry_count:            db 0
+lba_iter_count:         db 0
 lba_sectors_remaining:  dw 0
 lba_dest_offset:        dw 0
 lba_current:            dd 0
