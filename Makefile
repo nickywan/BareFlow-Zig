@@ -128,8 +128,8 @@ $(STAGE2_BIN): $(BOOT_DIR)/stage2.asm | $(BUILD_DIR)
 	fi
 	@echo "$(GREEN)✓ Stage 2 built (4096 bytes)$(NC)"
 
-# Build Kernel (ASM entry + C code + stdlib + VGA + Module System + C++ Runtime + JIT Allocator + Profiling Export + Tests)
-$(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdlib.c $(KERNEL_DIR)/vga.c $(KERNEL_DIR)/module_loader.c $(KERNEL_DIR)/jit_allocator.c $(KERNEL_DIR)/jit_allocator_test.c $(KERNEL_DIR)/profiling_export.c $(KERNEL_DIR)/cache_loader.c $(KERNEL_DIR)/idt.c $(KERNEL_DIR)/idt_stub.asm $(KERNEL_DIR)/cxx_runtime.cpp $(KERNEL_DIR)/cxx_test.cpp $(KERNEL_DIR)/linker.ld $(CACHE_OBJECTS) | $(BUILD_DIR)
+# Build Kernel (ASM entry + C code + stdlib + VGA + Module System + C++ Runtime + JIT Allocator + Profiling Export + FAT16 + Tests)
+$(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdlib.c $(KERNEL_DIR)/vga.c $(KERNEL_DIR)/module_loader.c $(KERNEL_DIR)/jit_allocator.c $(KERNEL_DIR)/jit_allocator_test.c $(KERNEL_DIR)/profiling_export.c $(KERNEL_DIR)/cache_loader.c $(KERNEL_DIR)/fat16.c $(KERNEL_DIR)/fat16_test.c $(KERNEL_DIR)/idt.c $(KERNEL_DIR)/idt_stub.asm $(KERNEL_DIR)/cxx_runtime.cpp $(KERNEL_DIR)/cxx_test.cpp $(KERNEL_DIR)/linker.ld $(CACHE_OBJECTS) | $(BUILD_DIR)
 	@echo "$(YELLOW)Building Kernel with Module System and C++ Runtime...$(NC)"
 	# Assemble entry point
 	$(ASM) -f elf32 $(KERNEL_DIR)/entry.asm -o $(BUILD_DIR)/entry.o
@@ -174,6 +174,14 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
 		-c $(KERNEL_DIR)/pic.c -o $(BUILD_DIR)/pic.o
 
+	# Compile FAT16 filesystem driver
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
+		-c $(KERNEL_DIR)/fat16.c -o $(BUILD_DIR)/fat16.o
+
+	# Compile FAT16 test
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
+		-c $(KERNEL_DIR)/fat16_test.c -o $(BUILD_DIR)/fat16_test.o
+
 	$(ASM) -f elf32 $(KERNEL_DIR)/idt_stub.asm -o $(BUILD_DIR)/idt_stub.o
 
 	# Compile C++ runtime
@@ -194,7 +202,7 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 		$(BUILD_DIR)/entry.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/module_loader.o \
 		$(BUILD_DIR)/vga.o $(BUILD_DIR)/stdlib.o $(BUILD_DIR)/jit_allocator.o \
 		$(BUILD_DIR)/jit_allocator_test.o $(BUILD_DIR)/profiling_export.o \
-		$(BUILD_DIR)/cache_loader.o $(BUILD_DIR)/idt.o $(BUILD_DIR)/idt_stub.o \
+		$(BUILD_DIR)/cache_loader.o $(BUILD_DIR)/fat16.o $(BUILD_DIR)/fat16_test.o $(BUILD_DIR)/idt.o $(BUILD_DIR)/idt_stub.o \
 		$(BUILD_DIR)/pic.o \
 		$(CACHE_OBJECTS) $(BUILD_DIR)/cxx_runtime.o $(BUILD_DIR)/cxx_test.o \
 		build/llvmlibc/libllvmlibc.a -o $(KERNEL_ELF)
