@@ -130,12 +130,12 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 
 ## Phase 2: Kernel Extensions
 
-### 2.1 Interrupt Handling
-- [ ] IDT (Interrupt Descriptor Table) setup
+### 2.1 Interrupt Handling ✅ COMPLETED (Basic)
+- [x] IDT (Interrupt Descriptor Table) setup
+- [x] Exception handlers (div zero, debug, NMI, breakpoint, overflow, bound, invalid op, GPF, page fault)
 - [ ] PIC (Programmable Interrupt Controller) configuration
 - [ ] Timer interrupt (IRQ 0)
 - [ ] Keyboard interrupt (IRQ 1)
-- [ ] Exception handlers (divide by zero, page fault, etc.)
 
 ### 2.2 Basic Scheduler
 - [ ] Task structure definition
