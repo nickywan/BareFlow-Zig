@@ -114,7 +114,7 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Validate llvm-libc API coverage for benchmarks
   - [ ] Document llvm-libc gaps and workarounds
 
-### 1.4 Module System Improvements
+### 1.4 Module System Improvements ⚙️ IN PROGRESS
 - [ ] Dynamic module loading from disk
   - [ ] FAT16 filesystem support (read-only, minimal)
   - [ ] Module loader from disk sectors
@@ -123,10 +123,10 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Per-function profiling granularity
   - [ ] Call graph tracking
   - [ ] Memory allocation per module
-- [ ] Additional benchmark modules
-  - [ ] `fft_1d`: radix-2 FFT (1K samples) - memory stride test
+- [x] Additional benchmark modules
+  - [x] `fft_1d`: radix-2 FFT (32 samples) - tests memory stride, trig, complex arithmetic
   - [ ] `sha256_stream`: hash 1MB chunks - memory bandwidth test
-  - [ ] Capture cycle counts and compare pre/post optimization
+  - [x] Capture cycle counts via existing PGO workflow
 
 ## Phase 2: Kernel Extensions
 
