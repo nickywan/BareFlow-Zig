@@ -30,41 +30,37 @@ static inline uint8_t inb(uint16_t port) {
 }
 
 int serial_init(void) {
-    // Disable interrupts
+    // Disable all interrupts
     outb(COM1_INT_ENABLE, 0x00);
 
-    // Enable DLAB (Divisor Latch Access Bit) to set baud rate
+    // Enable DLAB (set baud rate divisor)
     outb(COM1_LINE_CTRL, 0x80);
 
-    // Set baud rate to 115200 (divisor = 1)
-    outb(COM1_DATA, 0x01);        // Low byte
-    outb(COM1_INT_ENABLE, 0x00);  // High byte
+    // Set divisor to 3 (lo byte) 38400 baud
+    outb(COM1_DATA, 0x03);
+    outb(COM1_INT_ENABLE, 0x00); // (hi byte)
 
-    // 8 bits, no parity, 1 stop bit, disable DLAB
+    // 8 bits, no parity, one stop bit
     outb(COM1_LINE_CTRL, 0x03);
 
-    // Enable FIFO, clear, 14-byte threshold
+    // Enable FIFO, clear them, with 14-byte threshold
     outb(COM1_FIFO_CTRL, 0xC7);
 
-    // Enable RTS/DSR
+    // IRQs enabled, RTS/DSR set
     outb(COM1_MODEM_CTRL, 0x0B);
 
-    // Attempt loopback test, but tolerate failures (some virtual UARTs ignore it)
-    outb(COM1_MODEM_CTRL, 0x1E);  // Enable loopback mode
-    outb(COM1_DATA, 0xAE);         // Send test byte
-    int timeout = 100000;
-    while (!(inb(COM1_LINE_STATUS) & 0x01) && --timeout) {
-        // spin until data ready
-    }
-    if (timeout == 0 || inb(COM1_DATA) != 0xAE) {
-        outb(COM1_MODEM_CTRL, 0x0F);
-        return 0;
+    // Test serial chip by doing loopback test
+    outb(COM1_MODEM_CTRL, 0x1E); // Set in loopback mode, test the serial chip
+    outb(COM1_DATA, 0xAE);         // Test byte
+
+    // Check if serial is faulty (i.e: not same byte as sent)
+    if(inb(COM1_DATA) != 0xAE) {
+        return 1; // Serial faulty
     }
 
-    // Disable loopback, enable normal operation
+    // If serial is not faulty set it in normal operation mode
+    // (not-loopback with IRQs enabled and OUT#1 and OUT#2 bits enabled)
     outb(COM1_MODEM_CTRL, 0x0F);
-
-    serial_puts("[serial] init ok\n");
     return 0;
 }
 

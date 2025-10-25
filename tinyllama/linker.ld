@@ -9,8 +9,8 @@ ENTRY(_start)
 
 SECTIONS
 {
-    /* Kernel loaded at 4KB offset */
-    . = 0x1000;
+    /* Kernel loaded at 64KB offset */
+    . = 0x10000;
 
     /* Entry section MUST be first - contains FLUD signature at offset 0 */
     .text.entry : ALIGN(4) {

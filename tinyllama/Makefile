@@ -36,6 +36,7 @@ BOOTLOADER_STAGE2 = ../build/stage2.bin
 # ============================================================================
 
 # Object files
+# Switch between: main.o, main_simple.o, main_serial_test.o, main_minimal.o
 OBJS = entry.o main.o
 
 # Output files
@@ -69,6 +70,21 @@ entry.o: entry.asm
 
 # Compile main
 main.o: main.c
+	@echo "  [CC]   $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile main_simple (minimal test)
+main_simple.o: main_simple.c
+	@echo "  [CC]   $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile main_serial_test (serial test)
+main_serial_test.o: main_serial_test.c
+	@echo "  [CC]   $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile main_minimal (minimal test - just HLT)
+main_minimal.o: main_minimal.c
 	@echo "  [CC]   $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 

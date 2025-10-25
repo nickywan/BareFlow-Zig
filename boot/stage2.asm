@@ -11,8 +11,8 @@
 [ORG 0x7E00]
 
 ; === CONSTANTS ===
-KERNEL_OFFSET equ 0x10000           ; Load at 64KB to avoid bootloader area
-KERNEL_SECTORS equ 512             ; 512 sectors = 256KB (for LLVM module loading)
+KERNEL_OFFSET equ 0x10000           ; Load at 64KB (standard kernel location)
+KERNEL_SECTORS equ 64               ; 64 sectors = 32KB (enough for unikernel)
 KERNEL_SIGNATURE equ 0x464C5544    ; "FLUD"
 MAX_RETRIES equ 3
 
@@ -188,13 +188,13 @@ load_kernel:
 ; FUNCTION: load_kernel_lba
 ; ============================================================================
 load_kernel_lba:
-    ; Read 8 sectors at a time, 64 times (512 sectors total = 256KB)
-    ; Strategy: Increment segment every 16 iterations to avoid 64KB offset overflow
-    mov cx, 64                      ; 64 iterations (512 sectors = 256KB)
+    ; Read 8 sectors at a time, 8 times (64 sectors total = 32KB)
+    ; 32KB fits in single segment, no segment advancement needed
+    mov cx, 8                       ; 8 iterations (64 sectors = 32KB)
     mov bx, 0                       ; Starting offset (0)
     mov ax, 0x1000                  ; Starting segment (0x1000:0x0000 = 0x10000)
     mov di, 9                       ; Starting LBA (low word)
-    mov byte [lba_iter_count], 0    ; Iteration counter for segment advancement
+    mov byte [lba_iter_count], 0    ; Iteration counter
 
 .loop:
     push cx                         ; Save loop counter
@@ -253,8 +253,9 @@ load_kernel_lba:
 ; ============================================================================
 load_kernel_chs:
     mov word [chs_sectors_remaining], KERNEL_SECTORS
-    mov word [chs_dest_offset], KERNEL_OFFSET
-    mov byte [chs_current_sector], 10    ; Sector 10 (9+1, CHS is 1-indexed)
+    mov word [chs_dest_segment], (KERNEL_OFFSET >> 4)  ; Convert address to segment
+    mov word [chs_dest_offset], 0                      ; Offset 0 within segment
+    mov byte [chs_current_sector], 10                  ; Sector 10 (9+1, CHS is 1-indexed)
 
 .loop:
     ; Check if done
@@ -269,14 +270,18 @@ load_kernel_chs:
 .read_ok:
 
     ; Read sectors
+    push es
+    mov ax, [chs_dest_segment]
+    mov es, ax
     mov ah, 0x02                        ; Read function
     ; AL already set (sectors to read)
     mov ch, 0x00                        ; Cylinder 0
     mov cl, [chs_current_sector]        ; Current sector
     mov dh, 0x00                        ; Head 0
     mov dl, [BOOT_DRIVE]
-    mov bx, [chs_dest_offset]           ; Destination
+    mov bx, [chs_dest_offset]           ; Destination offset
     int 0x13
+    pop es
     jc .error
 
     ; Save sectors read
@@ -466,9 +471,10 @@ protected_mode_start:
     ; Setup stack
     mov ebp, 0x90000
     mov esp, ebp
-    
-    ; Jump to kernel
-    call KERNEL_OFFSET
+
+    ; Jump to kernel using absolute address in register
+    mov eax, KERNEL_OFFSET
+    jmp eax
     
     ; If kernel returns
     cli
@@ -532,6 +538,7 @@ lba_sectors_remaining:  dw 0
 lba_dest_offset:        dw 0
 lba_current:            dd 0
 chs_sectors_remaining:  dw 0
+chs_dest_segment:       dw 0
 chs_dest_offset:        dw 0
 chs_current_sector:     db 0
 

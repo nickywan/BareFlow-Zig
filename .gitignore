@@ -69,3 +69,5 @@ fluid.img
 build/cpu_profile.json
 kernel/auto_cpu_flags.mk
 cache/
+tinyllama/tinyllama.img
+tinyllama/*.img

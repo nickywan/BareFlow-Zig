@@ -45,7 +45,61 @@
 
 ---
 
-## ✅ État Actuel (Sessions 18-19 - 2025-10-26)
+## ✅ État Actuel (Session 20 - 2025-10-26)
+
+### Session 20 - Testing & Validation ✅ COMPLÈTE
+
+**Objectif** : Tester le boot de TinyLlama et valider le système de profiling
+
+**Problèmes découverts et résolus** :
+1. **Adresse de chargement incorrecte**
+   - Problème: `KERNEL_OFFSET = 0x1000` (4KB) causait des reboots
+   - Cause: Zone mémoire trop basse, potentiellement utilisée par BIOS/bootloader
+   - Solution: Changé à `0x10000` (64KB) - adresse standard pour kernels
+   - Fichiers modifiés:
+     - `boot/stage2.asm`: KERNEL_OFFSET = 0x10000
+     - `tinyllama/linker.ld`: . = 0x10000
+
+2. **Trop de secteurs chargés**
+   - Problème: `KERNEL_SECTORS = 512` (256KB) écrasait la mémoire
+   - Solution: Réduit à `64` secteurs (32KB) suffisant pour l'unikernel
+   - Ajusté: code LBA (8 itérations) et CHS (utilisation de segment)
+
+3. **Jump instruction en mode protégé**
+   - Testé: `jmp 0x08:0x1000` (far jump)
+   - Testé: `mov eax, KERNEL_OFFSET; jmp eax` (indirect jump)
+   - Final: Fonctionne avec `0x10000` quelle que soit la méthode
+
+**Résultats de test** :
+```
+=== TinyLlama Unikernel v0.1 - Profiling Results ===
+
+fibonacci:    calls=10,  avg=33,194 cycles, min=6,568,   max=269,624
+sum_to_n:     calls=100, avg=543 cycles,    min=149,     max=19,938
+count_primes: calls=5,   avg=62,498 cycles, min=10,326,  max=267,872
+
+Binary size: 13,040 bytes (13KB)
+Runtime lib: 15KB (kernel_lib.a)
+Total: 28KB
+```
+
+**Validation** :
+- ✅ Boot réussi avec bootloader 2-stage
+- ✅ VGA affichage fonctionnel (tests visibles)
+- ✅ Serial output fonctionnel (`-serial stdio`)
+- ✅ Profiling précis (cycle-accurate avec rdtsc)
+- ✅ Architecture unikernel complète
+
+**Commande de test** :
+```bash
+cd tinyllama
+make clean && make
+qemu-system-i386 -drive file=tinyllama.img,format=raw -serial stdio
+```
+
+---
+
+## ✅ Sessions précédentes (18-19)
 
 ### Session 18 - Extraction de kernel_lib.a ✅ COMPLÈTE
 

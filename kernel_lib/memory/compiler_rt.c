@@ -43,6 +43,38 @@ uint64_t __udivdi3(uint64_t dividend, uint64_t divisor) {
 }
 
 /**
+ * 64-bit unsigned modulo
+ * Required by compiler for uint64_t % uint64_t on 32-bit platforms
+ */
+uint64_t __umoddi3(uint64_t dividend, uint64_t divisor) {
+    if (divisor == 0) {
+        return 0;
+    }
+
+    if (divisor > dividend) {
+        return dividend;
+    }
+
+    if (divisor == dividend) {
+        return 0;
+    }
+
+    uint64_t remainder = 0;
+
+    // Process each bit from MSB to LSB
+    for (int i = 63; i >= 0; i--) {
+        remainder <<= 1;
+        remainder |= (dividend >> i) & 1;
+
+        if (remainder >= divisor) {
+            remainder -= divisor;
+        }
+    }
+
+    return remainder;
+}
+
+/**
  * 64-bit signed division
  * Required by compiler for int64_t / int64_t on 32-bit platforms
  */
@@ -69,4 +101,23 @@ int64_t __divdi3(int64_t dividend, int64_t divisor) {
     uint64_t result = __udivdi3(udividend, udivisor);
 
     return negative ? -(int64_t)result : (int64_t)result;
+}
+
+/**
+ * 64-bit signed modulo
+ * Required by compiler for int64_t % int64_t on 32-bit platforms
+ */
+int64_t __moddi3(int64_t dividend, int64_t divisor) {
+    if (divisor == 0) {
+        return 0;
+    }
+
+    // Handle signs
+    int negative_dividend = dividend < 0;
+    uint64_t udividend = negative_dividend ? -dividend : dividend;
+    uint64_t udivisor = divisor < 0 ? -divisor : divisor;
+
+    uint64_t result = __umoddi3(udividend, udivisor);
+
+    return negative_dividend ? -(int64_t)result : (int64_t)result;
 }
