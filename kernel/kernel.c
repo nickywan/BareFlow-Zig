@@ -23,6 +23,7 @@
 #include "adaptive_jit.h"
 #include "jit_demo.h"
 #include "elf_test.h"
+#include "llvm_test.h"
 
 // Forward declarations
 extern void* malloc(size_t size);
@@ -712,6 +713,12 @@ skip_jit_test:
     // ========================================================================
 
     test_elf_loader();
+
+    // ========================================================================
+    // LLVM ADAPTIVE OPTIMIZATION DEMO
+    // ========================================================================
+
+    test_llvm_modules();
 
     // ========================================================================
     // FINAL MESSAGE
