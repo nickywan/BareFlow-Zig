@@ -446,17 +446,17 @@ void kernel_main(void) {
     terminal_writestring("Initializing serial port (COM1)...\n");
     if (serial_init() == 0) {
         terminal_setcolor(VGA_GREEN, VGA_BLACK);
-        terminal_writestring("[OK] Serial port initialized (115200 baud)\n\n");
+        terminal_writestring("[OK] Serial port initialized (115200 baud)\n");
         terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+        terminal_writestring("Exporting profiling data to serial port...\n");
+        terminal_writestring("(VGA output paused during export to avoid mixing)\n\n");
 
-        terminal_writestring("Exporting profiling data via serial port...\n");
-        terminal_writestring("(Check serial output for JSON data)\n\n");
-
-        // Export profiling data
+        // Export profiling data (SERIAL OUTPUT ONLY - no VGA during export)
         profiling_trigger_export(&module_mgr);
 
+        // Resume VGA output
         terminal_setcolor(VGA_GREEN, VGA_BLACK);
-        terminal_writestring("[OK] Profiling data exported to serial port\n");
+        terminal_writestring("\n[OK] Profiling data exported to serial port\n");
         terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
     } else {
         terminal_setcolor(VGA_RED, VGA_BLACK);

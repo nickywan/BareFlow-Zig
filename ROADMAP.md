@@ -51,7 +51,7 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Cache loader at boot with signature verification
   - [ ] LRU eviction policy for cache management
 - [ ] Offline Recompilation Pipeline
-  - [ ] Python script to parse profiling JSON
+  - [ ] Implement `tools/pgo_recompile.py` to parse profiling JSON
   - [ ] Trigger LLVM recompilation with -O2/-O3 + PGO
   - [ ] Generate optimized .mod files
   - [ ] Update cache on disk/image

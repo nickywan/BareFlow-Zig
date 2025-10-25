@@ -84,6 +84,11 @@
 - [ ] Add `matrix_mul` benchmark module for validation
 - [ ] Test end-to-end: profile → recompile → reload cycle
 
+### ✅ Follow-up Fixes
+- Serial loopback test now polls the line-status register before reading the byte, preventing false negatives on slower UART emulations.
+- Profiling export clamps min/max cycle values to zero when a module has not executed, avoiding `UINT64_MAX` in JSON payloads.
+- Export footer text now references the planned host PGO tooling instead of a non-existent script.
+
 ---
 
 ## 🏗️ Architecture Overview

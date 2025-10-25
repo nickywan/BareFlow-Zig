@@ -53,8 +53,12 @@ int serial_init(void) {
     // Test serial port (loopback test)
     outb(COM1_MODEM_CTRL, 0x1E);  // Enable loopback mode
     outb(COM1_DATA, 0xAE);         // Send test byte
-
-    if (inb(COM1_DATA) != 0xAE) {
+    // Wait until data is available or timeout
+    int timeout = 100000;
+    while (!(inb(COM1_LINE_STATUS) & 0x01) && --timeout) {
+        // spin until data ready
+    }
+    if (timeout == 0 || inb(COM1_DATA) != 0xAE) {
         // Serial port failed loopback test
         return -1;
     }
@@ -212,13 +216,15 @@ int profiling_export_json(const module_manager_t* mgr) {
         serial_puts(",\n");
 
         // Min cycles
+        uint64_t min_cycles = (mod->call_count == 0) ? 0 : mod->min_cycles;
         serial_puts("      \"min_cycles\": ");
-        serial_put_uint64(mod->min_cycles);
+        serial_put_uint64(min_cycles);
         serial_puts(",\n");
 
         // Max cycles
+        uint64_t max_cycles = (mod->call_count == 0) ? 0 : mod->max_cycles;
         serial_puts("      \"max_cycles\": ");
-        serial_put_uint64(mod->max_cycles);
+        serial_put_uint64(max_cycles);
         serial_puts(",\n");
 
         // Note: Average cycles calculated on host as total_cycles / call_count
@@ -275,10 +281,9 @@ int profiling_trigger_export(const module_manager_t* mgr) {
     serial_puts("\n");
     serial_puts("Workflow:\n");
     serial_puts("1. Save JSON between BEGIN/END markers to file\n");
-    serial_puts("2. Run: python3 tools/pgo_recompile.py profile.json\n");
-    serial_puts("3. Script identifies hot modules and recompiles with -O2/-O3\n");
-    serial_puts("4. Rebuild kernel image with optimized modules\n");
-    serial_puts("5. Reboot to load optimized versions\n");
+    serial_puts("2. Feed JSON into host-side PGO tooling (see roadmap task)\n");
+    serial_puts("3. Rebuild module cache with optimized binaries\n");
+    serial_puts("4. Reassemble kernel image and reboot to load optimizations\n");
     serial_puts("\n=== END EXPORT ===\n\n");
 
     return result;
