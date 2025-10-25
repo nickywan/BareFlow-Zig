@@ -57,6 +57,7 @@ typedef enum {
 // ============================================================================
 // MICRO JIT API
 // ============================================================================
+// Note: jit_alloc_code() and jit_free_code() are provided by jit_allocator.h
 
 /**
  * Initialize micro JIT context

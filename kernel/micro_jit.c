@@ -139,8 +139,8 @@ void* micro_jit_compile_fibonacci(micro_jit_ctx_t* ctx, int iterations) {
     emit_dword(ctx, 0);    // Placeholder for offset
 
     // temp = a + b;
-    micro_jit_emit_mov_reg_imm(ctx, REG_EBX, 0);
-    emit_byte(ctx, 0x89);  // mov ebx, eax (temp = a)
+    // mov ebx, eax (temp = a)
+    emit_byte(ctx, 0x89);
     emit_byte(ctx, 0xC3);
     micro_jit_emit_add(ctx, REG_EBX, REG_ECX);  // temp += b
 

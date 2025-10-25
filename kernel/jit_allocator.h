@@ -152,6 +152,27 @@ int jit_is_pool_pointer(const void* ptr, jit_pool_type_t* pool);
  */
 int jit_mark_executable(void* ptr, size_t size);
 
+/**
+ * Allocate executable code memory (convenience wrapper for Micro-JIT)
+ *
+ * @param size Size in bytes
+ * @return Pointer to executable memory, or NULL on failure
+ */
+static inline void* jit_alloc_code(size_t size) {
+    return jit_alloc(size, JIT_POOL_CODE, JIT_ALLOC_EXECUTABLE | JIT_ALLOC_ZEROED);
+}
+
+/**
+ * Free executable code memory (convenience wrapper for Micro-JIT)
+ *
+ * @param ptr Pointer to memory
+ */
+static inline void jit_free_code(void* ptr) {
+    if (ptr) {
+        jit_free(ptr, JIT_POOL_CODE);
+    }
+}
+
 #ifdef __cplusplus
 }
 #endif

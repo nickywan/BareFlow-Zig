@@ -35,11 +35,12 @@ Application unique (TinyLlama) avec compilation JIT LLVM au runtime pour optimis
 - **Filesystem**: FAT16 read-only (ATA/IDE)
 
 ### Prochaines Étapes
-1. Debug fibonacci pattern in micro_jit.c
-2. Integrate micro-JIT with module_loader
-3. Load bitcode from disk, JIT compile, execute
-4. Hot-path detection (100/1000/10000 calls)
-5. Atomic code swap
+1. ✅ Debug fibonacci pattern in micro_jit.c ← DONE
+2. ⚠️ Fix Makefile recursion bug (blocking build)
+3. Integrate micro-JIT with module_loader
+4. Load bitcode from disk, JIT compile, execute
+5. Hot-path detection (100/1000/10000 calls)
+6. Atomic code swap
 
 ---
 
@@ -74,6 +75,19 @@ Application unique (TinyLlama) avec compilation JIT LLVM au runtime pour optimis
    - `modules/bc_fibonacci.c`: Freestanding version
    - Compiled at O0/O1/O2/O3 levels
    - Sizes: 2256-2472 bytes raw, ~2400 bytes wrapped
+
+6. **Micro-JIT Implementation & Testing** ✅ (NEW - Session 10)
+   - `kernel/micro_jit.c`: Fixed fibonacci pattern generation
+   - Removed incorrect MOV instruction causing segfault
+   - Integrated `jit_alloc_code()`/`jit_free_code()` with jit_allocator
+   - **Tests passing**:
+     - ✅ `test_simple_jit.c`: return 42 works
+     - ✅ `test_fib_debug.c`: fibonacci(5) = 5 works
+     - ✅ `test_jit_fib20.c`: fibonacci(20) = 6765 works
+     - ✅ `test_jit_sum.c`: sum(1..100) = 5050 works
+     - ✅ `test_micro_jit_fixed.c`: Both tests pass
+   - Added to Makefile (dependency + compilation + linking)
+   - **Known Issue**: Makefile recursion bug when using `make -B` ← blocking kernel build
 
 ### Technical Decisions
 
