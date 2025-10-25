@@ -201,6 +201,57 @@ static const module_header_t strops_header = {
 };
 
 // ============================================================================
+// EMBEDDED MODULE: regex_dfa (stub)
+// ============================================================================
+
+__attribute__((noinline, used))
+static int module_regex_dfa(void) {
+    return 0;  // Stub - real implementation in cache or disk
+}
+
+static const module_header_t regex_dfa_header = {
+    .magic = MODULE_MAGIC,
+    .name = "regex_dfa",
+    .entry_point = (void*)module_regex_dfa,
+    .code_size = 27,
+    .version = 1
+};
+
+// ============================================================================
+// EMBEDDED MODULE: gemm_tile (stub)
+// ============================================================================
+
+__attribute__((noinline, used))
+static int module_gemm_tile(void) {
+    return 0;  // Stub - real implementation in cache or disk
+}
+
+static const module_header_t gemm_tile_header = {
+    .magic = MODULE_MAGIC,
+    .name = "gemm_tile",
+    .entry_point = (void*)module_gemm_tile,
+    .code_size = 24852,
+    .version = 1
+};
+
+// ============================================================================
+// EMBEDDED MODULE: physics_step (stub)
+// ============================================================================
+
+__attribute__((noinline, used))
+static int module_physics_step(void) {
+    return 0;  // Stub - real implementation in cache or disk
+}
+
+static const module_header_t physics_step_header = {
+    .magic = MODULE_MAGIC,
+    .name = "physics_step",
+    .entry_point = (void*)module_physics_step,
+    .code_size = 824,
+    .version = 1
+};
+
+// ============================================================================
 // MODULE REGISTRY
 // ============================================================================
 
@@ -212,8 +263,11 @@ static const module_header_t* embedded_modules[] = {
     &fft_1d_header,
     &sha256_header,
     &matrix_mul_header,
-    &quicksort_header,  // RE-ENABLED for 9-module test
-    &strops_header,     // RE-ENABLED for 9-module test
+    &quicksort_header,
+    &strops_header,
+    &regex_dfa_header,
+    &gemm_tile_header,
+    &physics_step_header,
     NULL
 };
 
