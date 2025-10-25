@@ -10,6 +10,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "cpu/features.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,8 +80,8 @@ char* strcat(char* dest, const char* src);
 // ============================================================================
 // CPU - Features and Utilities
 // ============================================================================
+// Note: cpu_rdtsc() is provided by cpu/features.h as static inline
 
-uint64_t cpu_rdtsc(void);
 void cpu_cpuid(uint32_t leaf, uint32_t* eax, uint32_t* ebx, uint32_t* ecx, uint32_t* edx);
 int cpu_has_sse(void);
 int cpu_has_sse2(void);
