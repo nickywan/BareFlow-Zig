@@ -12,7 +12,7 @@
 
 ; === CONSTANTS ===
 KERNEL_OFFSET equ 0x10000           ; Load at 64KB to avoid bootloader area
-KERNEL_SECTORS equ 80              ; 80 sectors = 40KB (kernel with profiling is ~37KB)
+KERNEL_SECTORS equ 128             ; 128 sectors = 64KB (kernel with 9 modules is ~50KB)
 KERNEL_SIGNATURE equ 0x464C5544    ; "FLUD"
 MAX_RETRIES equ 3
 
@@ -188,8 +188,8 @@ load_kernel:
 ; FUNCTION: load_kernel_lba
 ; ============================================================================
 load_kernel_lba:
-    ; Use simple approach: read 8 sectors at a time, 10 times (80 sectors total)
-    mov cx, 10                      ; 10 iterations
+    ; Use simple approach: read 8 sectors at a time, 16 times (128 sectors total)
+    mov cx, 16                      ; 16 iterations (128 sectors = 64KB)
     mov bx, 0                       ; Starting offset (0)
     mov ax, 0x1000                  ; Starting segment (0x1000:0x0000 = 0x10000)
     mov di, 9                       ; Starting LBA (low word)

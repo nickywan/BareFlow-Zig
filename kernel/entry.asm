@@ -31,10 +31,10 @@ entry_point:
     ; Setup stack (if not already done by bootloader)
     mov esp, 0x90000
     mov ebp, esp
-    
+
     ; Clear direction flag (C convention)
     cld
-    
+
     ; Call C kernel main
     call kernel_main
     

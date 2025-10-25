@@ -212,8 +212,8 @@ static const module_header_t* embedded_modules[] = {
     &fft_1d_header,
     &sha256_header,
     &matrix_mul_header,
-    &quicksort_header,
-    &strops_header,
+    &quicksort_header,  // RE-ENABLED for 9-module test
+    &strops_header,     // RE-ENABLED for 9-module test
     NULL
 };
 

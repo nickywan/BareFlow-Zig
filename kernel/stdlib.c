@@ -102,7 +102,7 @@ char* strcat(char* dest, const char* src) {
 // MEMORY ALLOCATOR - APRÈS les string functions
 // ============================================================================
 
-#define HEAP_SIZE (16 * 1024 * 1024)  // 16 MB heap
+#define HEAP_SIZE (256 * 1024)  // 256 KB heap
 static uint8_t heap[HEAP_SIZE] __attribute__((aligned(16)));
 static size_t heap_offset = 0;
 
