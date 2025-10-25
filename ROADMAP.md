@@ -158,49 +158,66 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 
 ## Phase 2: Kernel Extensions
 
-### 2.1 Interrupt Handling ✅ COMPLETED
-- [x] IDT (Interrupt Descriptor Table) setup
-- [x] Exception handlers (div zero, debug, NMI, breakpoint, overflow, bound, invalid op, GPF, page fault)
-- [x] PIC (Programmable Interrupt Controller) configuration (remapped to 0x20-0x2F)
-- [x] Timer interrupt (IRQ0) with tick counter
-- [x] Keyboard interrupt (IRQ1) stub handler
+### 2.1 Disk I/O & Filesystem ✅ ~95% COMPLETE
+- [x] Serial port (COM1) ✅
+- [x] Interrupt handling (IDT, PIC, Timer, Keyboard) ✅
+- [x] FAT16 read-only filesystem ✅
+- [x] ATA/IDE disk driver ✅
+- [x] Module loading from disk ✅
+- [x] Disk module loader (disk_module_loader.c) ✅
+- [ ] PGO cache persistence to disk (tool created, integration pending)
 
-### 2.2 Basic Scheduler
-- [ ] Task structure definition
-- [ ] Round-robin scheduler
-- [ ] Context switching
-- [ ] Cooperative multitasking
-- [ ] Benchmark (control-flow stress): execute `regex_dfa` module to observe branch behavior
+### 2.2 Multicore Bootstrap ⏳ (Replaces "Basic Scheduler")
+**Note**: NO multitasking! Unikernel with single application. Multicore for data parallelism only.
 
-### 2.3 Additional Drivers
-- [ ] Serial port (COM1) for debugging
+- [ ] AP (Application Processor) startup (APIC/SIPI)
+- [ ] APIC (Advanced Programmable Interrupt Controller) setup
+- [ ] Per-core stacks and data structures
+- [ ] Work distribution API (not task scheduler!)
+- [ ] Core affinity for module execution
+- [ ] Parallel tensor operations (for TinyLlama)
+
+### 2.3 Additional Drivers (Optional)
+- [x] Serial port (COM1) for debugging ✅
 - [ ] PCI enumeration
-- [ ] Disk driver (IDE/AHCI)
-- [ ] Network card (optional, for remote profiling)
+- [ ] Network card (for remote profiling/telemetry)
+- [ ] AHCI (if IDE insufficient)
 
-## Phase 3: Performance Optimization
+## Phase 3: Runtime JIT Optimization 🔥 CRITICAL PATH
 
-### 3.1 JIT Optimization Cache
-- [ ] Design persistent cache format
-  - [ ] Cache metadata (function signature, optimization level, hash)
-  - [ ] Native code storage
-  - [ ] Relocation information
-- [ ] Disk-based cache storage
-  - [ ] Cache partition/file on disk
-  - [ ] Write optimized code to cache
-  - [ ] Read cache on boot
-- [ ] Cache invalidation strategy
-  - [ ] Version tracking
-  - [ ] Checksum verification
-  - [ ] LRU eviction policy
-- [ ] Host-compilation workflow
-  - [ ] Snapshot LLVM toolchain/llvm-libc revisions for reproducible builds
-  - [ ] Automate per-host CPU feature detection and flag injection
-  - [ ] Support compiling modules directly on target inference machines
-  - [ ] Integrate `gen_cpu_profile.py` into CI to validate host profiles
-  - [ ] Export bench tags alongside artifacts for comparison dashboards
+**Goal**: On-the-fly recompilation, NOT offline PGO!
 
-### 3.2 Advanced Profiling
+### 3.1 Bitcode Module System (Week 1-2)
+- [ ] Design bitcode module format (.bc instead of .mod)
+  - [ ] LLVM bitcode wrapper with header
+  - [ ] Entry point metadata
+  - [ ] Module versioning
+- [ ] Bitcode loader (load .bc from disk)
+- [ ] Test with simple modules
+
+### 3.2 Minimal JIT Integration (Week 3-4)
+- [ ] LLVM C API integration (LLVMExecutionEngine)
+- [ ] Static LLVM linking (~500KB overhead)
+- [ ] Thread-local storage (TLS) for C++ runtime
+- [ ] JIT compile at O0 (fast compilation)
+- [ ] Execute and profile
+
+### 3.3 Hot-Path Recompilation (Week 5-6)
+- [ ] Recompile trigger based on call count
+  - [ ] 100 calls → O1
+  - [ ] 1000 calls → O2
+  - [ ] 10000 calls → O3
+- [ ] Atomic code pointer swap
+- [ ] Background recompilation (non-blocking)
+- [ ] Code cache management
+
+### 3.4 Alternative: Custom Micro-JIT (if LLVM too heavy)
+- [ ] x86 code generator for hot loops
+- [ ] Loop unrolling emitter
+- [ ] SIMD code generation
+- [ ] ~10KB footprint (vs 500KB LLVM)
+
+### 3.5 Advanced Profiling (Hardware Counters)
 - [ ] Hardware performance counters (PMU)
   - [ ] Branch prediction statistics
   - [ ] Cache miss rates
@@ -375,5 +392,26 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 
 ---
 
-**Last Updated**: 2025-10-25
-**Status**: Phase 1.4 ✅ **COMPLETE** - 9-module system fully operational! All benchmarks created and validated. PGO workflow delivering real performance gains (1.06x-1.30x). Bootloader expanded to 128 sectors (64KB capacity). Ready for Phase 2 (Kernel Extensions) or enhanced profiling features.
+## Session 8 Progress (2025-10-25 Afternoon)
+
+### ✅ Completed
+- **Architecture Documentation**:
+  - ARCHITECTURE_DECISIONS.md: Core principles (no scheduler, runtime JIT, multicore)
+  - RUNTIME_JIT_PLAN.md: Full 10-week JIT integration plan
+- **3 New Benchmark Modules**:
+  - regex_dfa: DFA pattern matching (branch prediction)
+  - gemm_tile: 32x32 tiled matrix multiply (cache behavior)
+  - physics_step: 64-particle Verlet integration (mixed compute)
+- **12-Module System**: Kernel now 82KB with 12 modules
+- **Disk Module Loader**: Load .MOD files from FAT16
+- **PGO Cache Sync Tool**: pgo_cache_sync.py for disk persistence
+
+### 📋 Next Steps
+1. **Runtime JIT** (Phase 3.1-3.3): Bitcode modules + LLVM integration
+2. **Multicore** (Phase 2.2): AP startup, work distribution
+3. **TinyLlama** (Phase 5): Layer-wise JIT compilation
+
+---
+
+**Last Updated**: 2025-10-25 (Session 8)
+**Status**: Phase 2.1 ✅ **95% COMPLETE** - Disk I/O functional, 12 modules operational. Ready for Phase 3 (Runtime JIT) - CRITICAL PATH!
