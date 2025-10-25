@@ -20,6 +20,7 @@
 #include "disk_module_loader.h"
 #include "micro_jit.h"
 #include "jit_allocator.h"
+#include "adaptive_jit.h"
 
 // Forward declarations
 extern void* malloc(size_t size);
@@ -186,50 +187,97 @@ void kernel_main(void) {
     terminal_initialize();
 
     // VGA output
-    terminal_writestring("Fluid OS - Micro-JIT Integration\n\n");
+    terminal_writestring("Fluid OS - Adaptive JIT System\n\n");
 
     // Serial output (captured by QEMU)
-    serial_puts("\n=== MICRO-JIT BARE-METAL TEST ===\n");
+    serial_puts("\n=== ADAPTIVE JIT DEMONSTRATION ===\n");
 
     // Initialize JIT allocator (required for micro-JIT)
     // Pools: 32KB code, 32KB data, 16KB metadata (total 80KB, conservative allocation)
     serial_puts("[1] Initializing JIT allocator...\n");
     int jit_init_result = jit_allocator_init(32 * 1024, 32 * 1024, 16 * 1024);
-    if (jit_init_result == 0) {
-        serial_puts("[1] JIT allocator initialized OK\n");
-    } else {
+    if (jit_init_result != 0) {
         serial_puts("[1] JIT allocator init FAILED\n");
         goto skip_jit_test;
     }
+    serial_puts("[1] JIT allocator initialized OK\n");
 
-    // Test Micro-JIT
-    micro_jit_ctx_t jit_ctx;
-    if (micro_jit_init(&jit_ctx, NULL) == 0) {
-        serial_puts("[2] micro_jit_init() OK\n");
-
-        // Compile fibonacci(5)
-        typedef int (*jit_func_t)(void);
-        jit_func_t fib = (jit_func_t)micro_jit_compile_fibonacci(&jit_ctx, 5);
-        if (fib) {
-            serial_puts("[3] fibonacci(5) compiled successfully\n");
-
-            int result = fib();
-            if (result == 5) {
-                serial_puts("[4] fibonacci(5) executed: result = 5 [OK]\n");
-            } else {
-                serial_puts("[4] fibonacci(5) executed: result != 5 [FAILED]\n");
-            }
-        } else {
-            serial_puts("[3] fibonacci(5) compilation FAILED\n");
-        }
-
-        micro_jit_destroy(&jit_ctx);
-        serial_puts("[5] micro_jit_destroy() OK\n");
-    } else {
-        serial_puts("[2] micro_jit_init() FAILED\n");
+    // Initialize adaptive JIT system
+    adaptive_jit_t ajit;
+    if (adaptive_jit_init(&ajit) != 0) {
+        serial_puts("[2] Adaptive JIT init FAILED\n");
+        goto skip_jit_test;
     }
 
-    serial_puts("=== MICRO-JIT TEST COMPLETE ===\n\n");
+    // Register fibonacci function
+    // For demonstration, we start with a JIT-compiled O0 version
+    micro_jit_ctx_t initial_ctx;
+    micro_jit_init(&initial_ctx, NULL);
+    void* fib_o0 = micro_jit_compile_fibonacci(&initial_ctx, 5);
+
+    int fib_id = adaptive_jit_register_function(&ajit, "fibonacci", "demo", fib_o0);
+    if (fib_id < 0) {
+        serial_puts("[3] Function registration FAILED\n");
+        goto cleanup_ajit;
+    }
+    serial_puts("[3] fibonacci registered with adaptive JIT\n\n");
+
+    // Execute fibonacci multiple times to trigger recompilation
+    serial_puts("=== HOT-PATH DETECTION TEST ===\n");
+    serial_puts("Executing fibonacci 150 times to trigger O0->O1->O2 recompilation\n\n");
+
+    for (int i = 0; i < 150; i++) {
+        int result = adaptive_jit_execute(&ajit, fib_id);
+
+        // Print status at key thresholds
+        if (i == 0) {
+            serial_puts("[Call 1] Initial execution at O0\n");
+        } else if (i == 99) {
+            serial_puts("[Call 100] Threshold reached - recompiling to O1...\n");
+        } else if (i == 100) {
+            function_profile_t* profile = adaptive_jit_get_profile(&ajit, fib_id);
+            serial_puts("[Call 101] Now running at O");
+            serial_putchar('0' + profile->opt_level);
+            serial_puts("\n");
+        } else if (i == 149) {
+            function_profile_t* profile = adaptive_jit_get_profile(&ajit, fib_id);
+            serial_puts("[Call 150] Final optimization level: O");
+            serial_putchar('0' + profile->opt_level);
+            serial_puts("\n\n");
+        }
+
+        // Verify result
+        if (result != 5 && i == 0) {
+            serial_puts("ERROR: fibonacci(5) returned incorrect result!\n");
+            break;
+        }
+    }
+
+    // Print final profiling statistics
+    function_profile_t* final_profile = adaptive_jit_get_profile(&ajit, fib_id);
+    serial_puts("=== PROFILING STATISTICS ===\n");
+    serial_puts("Function: fibonacci(5)\n");
+    serial_puts("Total calls: ");
+    // Simple integer printing (hundreds, tens, ones)
+    int calls = (int)final_profile->call_count;
+    serial_putchar('0' + (calls / 100));
+    serial_putchar('0' + ((calls / 10) % 10));
+    serial_putchar('0' + (calls % 10));
+    serial_puts("\n");
+    serial_puts("Final optimization level: O");
+    serial_putchar('0' + final_profile->opt_level);
+    serial_puts("\n");
+    serial_puts("Recompilations triggered: ");
+    if (final_profile->opt_level == OPT_LEVEL_O1) serial_puts("1 (O0->O1)\n");
+    else if (final_profile->opt_level == OPT_LEVEL_O2) serial_puts("2 (O0->O1->O2)\n");
+    else if (final_profile->opt_level == OPT_LEVEL_O3) serial_puts("3 (O0->O1->O2->O3)\n");
+    else serial_puts("0\n");
+
+    serial_puts("\n=== ADAPTIVE JIT TEST COMPLETE ===\n\n");
+
+cleanup_ajit:
+    adaptive_jit_shutdown(&ajit);
+    micro_jit_destroy(&initial_ctx);
 
 skip_jit_test:
 

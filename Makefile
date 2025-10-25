@@ -193,6 +193,14 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
 		-c $(KERNEL_DIR)/micro_jit.c -o $(BUILD_DIR)/micro_jit.o
 
+	# Compile function profiler
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
+		-c $(KERNEL_DIR)/function_profiler.c -o $(BUILD_DIR)/function_profiler.o
+
+	# Compile adaptive JIT
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
+		-c $(KERNEL_DIR)/adaptive_jit.c -o $(BUILD_DIR)/adaptive_jit.o
+
 	$(ASM) -f elf32 $(KERNEL_DIR)/idt_stub.asm -o $(BUILD_DIR)/idt_stub.o
 
 	# Compile C++ runtime
@@ -215,7 +223,7 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 		$(BUILD_DIR)/vga.o $(BUILD_DIR)/stdlib.o $(BUILD_DIR)/jit_allocator.o \
 		$(BUILD_DIR)/jit_allocator_test.o $(BUILD_DIR)/profiling_export.o \
 		$(BUILD_DIR)/cache_loader.o $(BUILD_DIR)/fat16.o $(BUILD_DIR)/fat16_test.o $(BUILD_DIR)/idt.o $(BUILD_DIR)/idt_stub.o \
-		$(BUILD_DIR)/pic.o $(BUILD_DIR)/micro_jit.o \
+		$(BUILD_DIR)/pic.o $(BUILD_DIR)/micro_jit.o $(BUILD_DIR)/function_profiler.o $(BUILD_DIR)/adaptive_jit.o \
 		$(CACHE_OBJECTS) $(BUILD_DIR)/cxx_runtime.o $(BUILD_DIR)/cxx_test.o \
 		build/llvmlibc/libllvmlibc.a -o $(KERNEL_ELF)
 	@SIZE=$$(stat -f%z "$(KERNEL_ELF)" 2>/dev/null || stat -c%s "$(KERNEL_ELF)" 2>/dev/null); \

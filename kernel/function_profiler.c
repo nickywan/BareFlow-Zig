@@ -211,22 +211,31 @@ static void print_int(int num) {
     }
 }
 
+// Simplified: Print only lower 32 bits to avoid __udivdi3
 static void print_uint64(uint64_t num) {
-    if (num == 0) {
+    // For bare-metal, just print lower 32 bits
+    uint32_t lower = (uint32_t)num;
+
+    if (lower == 0) {
         terminal_putchar('0');
         return;
     }
 
-    char buffer[32];
+    char buffer[16];
     int i = 0;
 
-    while (num > 0) {
-        buffer[i++] = '0' + (num % 10);
-        num /= 10;
+    while (lower > 0) {
+        buffer[i++] = '0' + (lower % 10);
+        lower /= 10;
     }
 
     for (int j = i - 1; j >= 0; j--) {
         terminal_putchar(buffer[j]);
+    }
+
+    // Indicate if upper bits are non-zero
+    if ((num >> 32) != 0) {
+        terminal_putchar('+');
     }
 }
 
@@ -258,9 +267,10 @@ void function_profiler_print_stats(function_profiler_t* profiler) {
         terminal_writestring("\n");
 
         if (func->call_count > 0) {
-            uint64_t avg = func->total_cycles / func->call_count;
+            // Avoid 64-bit division - approximate with 32-bit
+            uint32_t avg_approx = (uint32_t)func->total_cycles / (uint32_t)func->call_count;
             terminal_writestring("    Avg: ");
-            print_uint64(avg);
+            print_int(avg_approx);
             terminal_writestring(", Min: ");
             print_uint64(func->min_cycles);
             terminal_writestring(", Max: ");
