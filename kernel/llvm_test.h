@@ -15,4 +15,9 @@ void test_llvm_modules(void);
  */
 void test_llvm_pgo_suite(void);
 
+/**
+ * Test LLVM PGO extended suite with branch-heavy modules
+ */
+void test_llvm_pgo_extended(void);
+
 #endif // LLVM_TEST_H

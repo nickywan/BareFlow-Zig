@@ -232,6 +232,10 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
 		-c $(KERNEL_DIR)/llvm_test_pgo.c -o $(BUILD_DIR)/llvm_test_pgo.o
 
+	# Compile LLVM PGO extended test suite
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
+		-c $(KERNEL_DIR)/llvm_test_pgo_extended.c -o $(BUILD_DIR)/llvm_test_pgo_extended.o
+
 	# Embed LLVM-compiled fibonacci modules
 	@mkdir -p llvm_modules
 	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/fibonacci_O0_embed.o llvm_modules/fibonacci_O0.elf
@@ -256,6 +260,24 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/primes_O1_embed.o llvm_modules/primes_O1.elf
 	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/primes_O2_embed.o llvm_modules/primes_O2.elf
 	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/primes_O3_embed.o llvm_modules/primes_O3.elf
+
+	# Embed LLVM-compiled fft_1d modules
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/fft_1d_O0_embed.o llvm_modules/fft_1d_O0.elf
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/fft_1d_O1_embed.o llvm_modules/fft_1d_O1.elf
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/fft_1d_O2_embed.o llvm_modules/fft_1d_O2.elf
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/fft_1d_O3_embed.o llvm_modules/fft_1d_O3.elf
+
+	# Embed LLVM-compiled quicksort modules
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/quicksort_O0_embed.o llvm_modules/quicksort_O0.elf
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/quicksort_O1_embed.o llvm_modules/quicksort_O1.elf
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/quicksort_O2_embed.o llvm_modules/quicksort_O2.elf
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/quicksort_O3_embed.o llvm_modules/quicksort_O3.elf
+
+	# Embed LLVM-compiled compute_dispatch modules
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/compute_dispatch_O0_embed.o llvm_modules/compute_dispatch_O0.elf
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/compute_dispatch_O1_embed.o llvm_modules/compute_dispatch_O1.elf
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/compute_dispatch_O2_embed.o llvm_modules/compute_dispatch_O2.elf
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/compute_dispatch_O3_embed.o llvm_modules/compute_dispatch_O3.elf
 
 	# Compile bitcode module loader
 	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
@@ -285,7 +307,7 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 		$(BUILD_DIR)/cache_loader.o $(BUILD_DIR)/fat16.o $(BUILD_DIR)/fat16_test.o $(BUILD_DIR)/idt.o $(BUILD_DIR)/idt_stub.o \
 		$(BUILD_DIR)/pic.o $(BUILD_DIR)/micro_jit.o $(BUILD_DIR)/function_profiler.o $(BUILD_DIR)/adaptive_jit.o \
 		$(BUILD_DIR)/jit_demo.o $(BUILD_DIR)/elf_loader.o $(BUILD_DIR)/elf_test.o $(BUILD_DIR)/elf_test_module_embed.o \
-		$(BUILD_DIR)/llvm_module_manager.o $(BUILD_DIR)/llvm_test.o $(BUILD_DIR)/llvm_test_pgo.o \
+		$(BUILD_DIR)/llvm_module_manager.o $(BUILD_DIR)/llvm_test.o $(BUILD_DIR)/llvm_test_pgo.o $(BUILD_DIR)/llvm_test_pgo_extended.o \
 		$(BUILD_DIR)/fibonacci_O0_embed.o $(BUILD_DIR)/fibonacci_O1_embed.o \
 		$(BUILD_DIR)/fibonacci_O2_embed.o $(BUILD_DIR)/fibonacci_O3_embed.o \
 		$(BUILD_DIR)/matrix_mul_O0_embed.o $(BUILD_DIR)/matrix_mul_O1_embed.o \
@@ -294,6 +316,12 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 		$(BUILD_DIR)/sha256_O2_embed.o $(BUILD_DIR)/sha256_O3_embed.o \
 		$(BUILD_DIR)/primes_O0_embed.o $(BUILD_DIR)/primes_O1_embed.o \
 		$(BUILD_DIR)/primes_O2_embed.o $(BUILD_DIR)/primes_O3_embed.o \
+		$(BUILD_DIR)/fft_1d_O0_embed.o $(BUILD_DIR)/fft_1d_O1_embed.o \
+		$(BUILD_DIR)/fft_1d_O2_embed.o $(BUILD_DIR)/fft_1d_O3_embed.o \
+		$(BUILD_DIR)/quicksort_O0_embed.o $(BUILD_DIR)/quicksort_O1_embed.o \
+		$(BUILD_DIR)/quicksort_O2_embed.o $(BUILD_DIR)/quicksort_O3_embed.o \
+		$(BUILD_DIR)/compute_dispatch_O0_embed.o $(BUILD_DIR)/compute_dispatch_O1_embed.o \
+		$(BUILD_DIR)/compute_dispatch_O2_embed.o $(BUILD_DIR)/compute_dispatch_O3_embed.o \
 		$(BUILD_DIR)/bitcode_module.o \
 		$(CACHE_OBJECTS) $(BUILD_DIR)/cxx_runtime.o $(BUILD_DIR)/cxx_test.o \
 		build/llvmlibc/libllvmlibc.a -o $(KERNEL_ELF)
