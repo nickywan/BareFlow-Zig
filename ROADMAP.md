@@ -114,7 +114,7 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Validate llvm-libc API coverage for benchmarks
   - [ ] Document llvm-libc gaps and workarounds
 
-### 1.4 Module System Improvements ⚙️ IN PROGRESS
+### 1.4 Module System Improvements ✅ COMPLETED (Benchmarks)
 - [ ] Dynamic module loading from disk
   - [ ] FAT16 filesystem support (read-only, minimal)
   - [ ] Module loader from disk sectors
