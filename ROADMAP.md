@@ -124,8 +124,8 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Call graph tracking
   - [ ] Memory allocation per module
 - [x] Additional benchmark modules
-  - [x] `fft_1d`: radix-2 FFT (32 samples) - tests memory stride, trig, complex arithmetic
-  - [ ] `sha256_stream`: hash 1MB chunks - memory bandwidth test
+  - [x] `fft_1d`: radix-2 FFT (32 samples) - memory stride, trig, complex arithmetic
+  - [x] `sha256`: SHA256 hash (1KB chunks) - memory bandwidth, bitwise ops
   - [x] Capture cycle counts via existing PGO workflow
 
 ## Phase 2: Kernel Extensions
