@@ -1,10 +1,22 @@
-# Architecture Decisions - BareFlow/Fluid OS
+# Architecture Decisions - BareFlow
+
+## 🎯 Vision Principale
+
+**BareFlow = Unikernel Ring 0 + LLVM JIT Runtime + llvm-libc**
+
+Application unique (TinyLlama) avec compilation JIT LLVM à la volée pour optimisation adaptative sans downtime.
 
 ## Core Design Principles
 
 ### 🔥 RUNTIME JIT OPTIMIZATION - On-the-Fly Recompilation
 
 **Critical Decision**: JIT optimization happens **AT RUNTIME**, not offline!
+
+**Stack Complet**:
+- **LLVM Bitcode**: Modules chargés au format .bc
+- **LLVM JIT**: Compilation O0→O1→O2→O3 au runtime
+- **llvm-libc**: Libc freestanding (string, math) pour bare-metal
+- **Profiling**: rdtsc pour détection chemins chauds
 
 **Current Status**:
 - ❌ Current PGO: Offline recompilation (host-side with Python scripts)
