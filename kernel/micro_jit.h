@@ -16,7 +16,7 @@
 // MICRO JIT CONTEXT
 // ============================================================================
 
-#define MAX_JIT_CODE_SIZE (64 * 1024)  // 64KB per function
+#define MAX_JIT_CODE_SIZE (8 * 1024)  // 8KB per function (sufficient for small functions)
 
 typedef struct {
     uint8_t* code_buffer;    // Executable code buffer

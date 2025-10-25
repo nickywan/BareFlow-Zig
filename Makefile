@@ -36,9 +36,11 @@ cpu-profile:
 	@python3 tools/gen_cpu_profile.py --force-i686
 	@echo "[0;32m✓ CPU profile generated: $(CPU_FLAGS_FILE)[0m"
 
-# Generate on-demand if missing
+# Generate on-demand if missing (direct invocation to avoid recursion)
 $(CPU_FLAGS_FILE):
-	@$(MAKE) cpu-profile
+	@echo "[1;33mGenerating CPU profile (QEMU-safe: i686)...[0m"
+	@python3 tools/gen_cpu_profile.py --force-i686
+	@echo "[0;32m✓ CPU profile generated: $(CPU_FLAGS_FILE)[0m"
 
 ifneq ("$(wildcard $(CPU_FLAGS_FILE))","")
 include $(CPU_FLAGS_FILE)
@@ -62,16 +64,17 @@ KERNEL_START_SECTOR = 9
 
 CACHE_PROFILE_TAG ?= $(CPU_PROFILE_TAG)
 CACHE_DIR := cache/$(CACHE_PROFILE_TAG)
-CACHE_MODS := $(foreach m,$(wildcard $(CACHE_DIR)/*.mod),$(if $(findstring _O,$(basename $(notdir $(m)))),,$(m)))
-CACHE_NAMES := $(notdir $(basename $(CACHE_MODS)))
-CACHE_EMBED_CS := $(patsubst %, $(BUILD_DIR)/cache_embed_%.c, $(CACHE_NAMES))
-CACHE_EMBED_OBJS := $(CACHE_EMBED_CS:.c=.o)
-CACHE_REGISTRY := $(BUILD_DIR)/cache_registry.c
-CACHE_REGISTRY_OBJ := $(BUILD_DIR)/cache_registry.o
+# Temporarily disable cache embedding to test micro-JIT integration
+CACHE_MODS :=
+CACHE_NAMES :=
+CACHE_EMBED_CS :=
+CACHE_EMBED_OBJS :=
+CACHE_REGISTRY :=
+CACHE_REGISTRY_OBJ :=
 CACHE_OBJECTS :=
 
-ifneq ($(CACHE_MODS),)
-CACHE_OBJECTS := $(CACHE_EMBED_OBJS) $(CACHE_REGISTRY_OBJ)
+# ifneq ($(CACHE_MODS),)
+# CACHE_OBJECTS := $(CACHE_EMBED_OBJS) $(CACHE_REGISTRY_OBJ)
 
 $(BUILD_DIR)/cache_embed_%.c: $(CACHE_DIR)/%.mod tools/embed_module.py | $(BUILD_DIR)
 	python3 tools/embed_module.py --input $< --output $@ --name $*
@@ -87,7 +90,7 @@ $(CACHE_REGISTRY_OBJ): $(CACHE_REGISTRY) | $(BUILD_DIR)
 	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) -I$(KERNEL_DIR) \
 		-c $< -o $@
 
-endif
+# endif
 
 # Colors for output
 RED = \033[0;31m

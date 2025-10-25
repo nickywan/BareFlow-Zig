@@ -18,6 +18,8 @@
 #include "profiling_export.h"
 #include "fat16_test.h"
 #include "disk_module_loader.h"
+#include "micro_jit.h"
+#include "jit_allocator.h"
 
 // Forward declarations
 extern void* malloc(size_t size);
@@ -182,6 +184,54 @@ void check_cpu_features(void) {
 void kernel_main(void) {
     // Initialize VGA terminal
     terminal_initialize();
+
+    // VGA output
+    terminal_writestring("Fluid OS - Micro-JIT Integration\n\n");
+
+    // Serial output (captured by QEMU)
+    serial_puts("\n=== MICRO-JIT BARE-METAL TEST ===\n");
+
+    // Initialize JIT allocator (required for micro-JIT)
+    // Pools: 32KB code, 32KB data, 16KB metadata (total 80KB, conservative allocation)
+    serial_puts("[1] Initializing JIT allocator...\n");
+    int jit_init_result = jit_allocator_init(32 * 1024, 32 * 1024, 16 * 1024);
+    if (jit_init_result == 0) {
+        serial_puts("[1] JIT allocator initialized OK\n");
+    } else {
+        serial_puts("[1] JIT allocator init FAILED\n");
+        goto skip_jit_test;
+    }
+
+    // Test Micro-JIT
+    micro_jit_ctx_t jit_ctx;
+    if (micro_jit_init(&jit_ctx, NULL) == 0) {
+        serial_puts("[2] micro_jit_init() OK\n");
+
+        // Compile fibonacci(5)
+        typedef int (*jit_func_t)(void);
+        jit_func_t fib = (jit_func_t)micro_jit_compile_fibonacci(&jit_ctx, 5);
+        if (fib) {
+            serial_puts("[3] fibonacci(5) compiled successfully\n");
+
+            int result = fib();
+            if (result == 5) {
+                serial_puts("[4] fibonacci(5) executed: result = 5 [OK]\n");
+            } else {
+                serial_puts("[4] fibonacci(5) executed: result != 5 [FAILED]\n");
+            }
+        } else {
+            serial_puts("[3] fibonacci(5) compilation FAILED\n");
+        }
+
+        micro_jit_destroy(&jit_ctx);
+        serial_puts("[5] micro_jit_destroy() OK\n");
+    } else {
+        serial_puts("[2] micro_jit_init() FAILED\n");
+    }
+
+    serial_puts("=== MICRO-JIT TEST COMPLETE ===\n\n");
+
+skip_jit_test:
 
     // Initialize C++ runtime (for new/delete, global constructors, etc.)
     cxx_runtime_init();
