@@ -6,9 +6,54 @@
 
 ---
 
-## 🔥 Latest Session Work (2025-10-25 - Part 5)
+## 🔥 Latest Session Work (2025-10-25 - Part 5 & 6)
 
-### ✅ COMPLETED: 7-Module System with Full PGO Validation
+### 🎉 COMPLETED: 9-Module System Successfully Booting!
+
+**Major Achievements**:
+1. ✅ Fixed critical module loading bug (7 modules)
+2. ✅ Validated complete PGO workflow with real performance gains
+3. ✅ Created quicksort and strops benchmark modules
+4. ✅ **RESOLVED 9-module boot failure** (bootloader sector limit)
+
+### Part 6: Resolving 9-Module Boot Failure
+
+**Problem**: Kernel completely failed to boot with 9 modules (quicksort + strops added to 7 working modules).
+
+**Symptoms**:
+- ✅ 7 modules: Boot successful
+- ✅ 8 modules (7 + quicksort OR strops): Boot successful
+- ❌ 9 modules (7 + quicksort AND strops): Complete boot failure
+- No serial output, no VGA output - crash before kernel_main
+
+**Investigation Process**:
+1. Initial hypothesis: 16MB heap in .bss section → Reduced to 256KB (still failed)
+2. Added assembly debug markers in entry.asm → No markers visible
+3. Analyzed kernel size: **50,740 bytes (99 sectors required)**
+4. **BREAKTHROUGH**: Bootloader only reads **80 sectors (40KB)**!
+
+**Root Cause**: The bootloader (`boot/stage2.asm`) was configured to load only 80 sectors (40KB), but the 9-module kernel is 50.7KB. The last ~10KB of the kernel was being truncated, causing crashes when execution reached missing code.
+
+**Solution** (Commit 4b5ce5c):
+1. **Increased bootloader capacity**:
+   - `KERNEL_SECTORS`: 80 → 128 (64KB capacity)
+   - Loop iterations: 10 → 16 (16 × 8 sectors)
+2. **Reduced heap size** (bonus optimization):
+   - `HEAP_SIZE`: 16MB → 256KB (reasonable for bare-metal)
+
+**Result**: ✅ All 9 modules now boot and execute successfully!
+
+**Profiling Confirmation**:
+```json
+{
+  "total_calls": 22,
+  "num_modules": 9,
+  "modules": ["fibonacci", "sum", "compute", "primes", "fft_1d",
+              "sha256", "matrix_mul", "quicksort", "strops"]
+}
+```
+
+### Part 5: 7-Module System with Full PGO Validation
 
 **Major Achievement**: Fixed critical module loading bug and validated complete PGO workflow with 7 benchmark modules!
 
@@ -177,11 +222,11 @@ matrix_mul      39,226         48,909         0.80x  (variance)
 **Fluid OS** is a bare-metal unikernel with LLVM-based runtime optimization. The system boots from a two-stage bootloader into 32-bit protected mode and supports dynamic module loading with cycle-accurate profiling.
 
 ### ✅ What Works Now
-- Two-stage bootloader (Stage 1: 512 bytes, Stage 2: 4KB)
-- 32-bit protected mode kernel at 0x10000 (50KB)
+- Two-stage bootloader (Stage 1: 512 bytes, Stage 2: 4KB, **128-sector capacity**)
+- 32-bit protected mode kernel at 0x10000 (50.7KB)
 - VGA text mode (80×25, 16 colors)
 - PS/2 keyboard input (interactive mode)
-- **AOT module system with 7 working modules** ✨
+- **AOT module system with 9 working modules** ✨🎉
 - Cycle-accurate profiling using `rdtsc`
 - Serial port driver (COM1, 115200 baud)
 - JSON profiling export via serial port
@@ -197,9 +242,10 @@ matrix_mul      39,226         48,909         0.80x  (variance)
 - Interactive vs automated build modes
 
 ### 📊 Kernel Stats
-- **Size**: 50,260 bytes (98 sectors)
-- **Modules**: 7 active (fibonacci, sum, compute, primes, fft_1d, sha256, matrix_mul)
-- **Total Calls**: 20 (1 fibonacci, 1 sum, 10 compute, 1 primes, 1 fft_1d, 1 sha256, 5 matrix_mul)
+- **Size**: 50,740 bytes (99 sectors, under 128-sector bootloader limit)
+- **Modules**: **9 active** (fibonacci, sum, compute, primes, fft_1d, sha256, matrix_mul, **quicksort**, **strops**)
+- **Total Calls**: 22 (across all 9 modules)
+- **Heap Size**: 256KB (reduced from 16MB)
 - **Memory layout**:
   - Kernel: 0x10000 (64KB)
   - Stack: 0x90000 (grows down)
