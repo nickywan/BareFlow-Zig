@@ -21,6 +21,17 @@ SECTIONS
         *(.rodata .rodata.*)
     }
 
+    /* Initialized data section */
+    .data : {
+        *(.data .data.*)
+    }
+
+    /* BSS section - uninitialized data (NOT included in .mod file!) */
+    .bss : {
+        *(.bss .bss.*)
+        *(COMMON)
+    }
+
     /* Discard unused sections */
     /DISCARD/ : {
         *(.comment)

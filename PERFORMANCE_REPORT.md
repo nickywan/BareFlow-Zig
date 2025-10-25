@@ -124,18 +124,36 @@ primes          771,700        426,021        +44.79%
 
 ### matrix_mul Status
 
-⚠️ **Temporarily disabled** due to 48KB static data (3× 64×64 int matrices)
-- Module compiles correctly (708 bytes with -O3)
-- Boot issue when included in tests
-- **Solution**: Move matrices to heap allocation (malloc)
-- **Future**: Will measure matrix_mul performance after fix
+✅ **FIXED**: .bss section issue resolved!
+
+**Problem Discovered**:
+- Uninitialized static arrays → .bss section (NOBITS type)
+- `objcopy -O binary` doesn't extract .bss data
+- Result: .mod file missing 768+ bytes, kernel crashes
+
+**Solution Applied** (2025-10-25):
+```c
+// BEFORE (broken - .bss):
+static int mat_a[16][16];  // Uninitialized
+
+// AFTER (working - .data):
+static int mat_a[16][16] = {{1}};  // Initialized (non-zero!)
+```
+
+**Current Status**:
+- ✅ Module compiles (16×16 matrices, 3.9KB with .data section)
+- ✅ Kernel boots without crashing
+- ⚠️  Module loading/execution issue (investigating)
+
+**Key Learning**: **All modules with static/global variables MUST use initialized data**, otherwise .bss won't be included in .mod file!
 
 ## Status
 
 ✅ **PGO System**: Fully functional and validated
 ✅ **Module Compilation**: Working with correct -O2/-O3 flags
 ✅ **Performance Measurement**: **COMPLETE** - Real gains measured!
-✅ **Bug Fix**: Critical -o3 vs -O3 issue resolved
-⚠️  **matrix_mul**: Disabled pending heap allocation fix
-📋 **Next Steps**: Fix matrix_mul static data, document in Phase 1.3
+✅ **Bug Fix #1**: Critical -o3 vs -O3 issue resolved
+✅ **Bug Fix #2**: .bss section issue resolved (modules must use .data)
+⚠️  **matrix_mul**: Embedded but not executing (needs module loading debug)
+📋 **Next Steps**: Debug module loading, proceed to Phase 1.3 (llvm-libc)
 

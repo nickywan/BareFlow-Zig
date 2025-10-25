@@ -1,0 +1,37 @@
+# ============================================================================
+# LLVM-LIBC BUILD FOR BAREFLOW
+# ============================================================================
+# Builds minimal subset of llvm-libc for bare-metal kernel
+
+CC = clang-18
+CFLAGS = -m32 -ffreestanding -nostdlib -fno-builtin -O2 -Wall -Wextra
+CFLAGS += -fno-stack-protector -fno-pie
+
+LLVMLIBC_DIR = libs/llvmlibc
+BUILD_DIR = build/llvmlibc
+OBJ_DIR = $(BUILD_DIR)/obj
+
+# Source files (we'll implement minimal versions)
+SOURCES = $(LLVMLIBC_DIR)/memcpy.c \
+          $(LLVMLIBC_DIR)/memset.c \
+          $(LLVMLIBC_DIR)/strlen.c \
+          $(LLVMLIBC_DIR)/strcmp.c
+
+OBJECTS = $(patsubst $(LLVMLIBC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SOURCES))
+
+all: $(BUILD_DIR)/libllvmlibc.a
+
+$(BUILD_DIR)/libllvmlibc.a: $(OBJECTS) | $(BUILD_DIR)
+	ar rcs $@ $^
+	@echo "✓ llvm-libc built: $@"
+
+$(OBJ_DIR)/%.o: $(LLVMLIBC_DIR)/%.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR) $(OBJ_DIR):
+	mkdir -p $@
+
+clean:
+	rm -rf $(BUILD_DIR)
+
+.PHONY: all clean

@@ -182,13 +182,17 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 		-fno-exceptions -fno-rtti -fno-threadsafe-statics \
 		-c $(KERNEL_DIR)/cxx_test.cpp -o $(BUILD_DIR)/cxx_test.o
 
-	# Link everything (ORDRE IMPORTANT)
+	# Build llvm-libc first
+	@$(MAKE) -f Makefile.llvmlibc all -s
+
+	# Link everything (ORDRE IMPORTANT - libllvmlibc.a LAST for symbol resolution)
 	$(LD) -m elf_i386 -T $(KERNEL_DIR)/linker.ld -Map $(KERNEL_MAP) \
 		$(BUILD_DIR)/entry.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/module_loader.o \
 		$(BUILD_DIR)/vga.o $(BUILD_DIR)/stdlib.o $(BUILD_DIR)/jit_allocator.o \
 		$(BUILD_DIR)/jit_allocator_test.o $(BUILD_DIR)/profiling_export.o \
 		$(BUILD_DIR)/cache_loader.o $(BUILD_DIR)/idt.o $(BUILD_DIR)/idt_stub.o \
-		$(CACHE_OBJECTS) $(BUILD_DIR)/cxx_runtime.o $(BUILD_DIR)/cxx_test.o -o $(KERNEL_ELF)
+		$(CACHE_OBJECTS) $(BUILD_DIR)/cxx_runtime.o $(BUILD_DIR)/cxx_test.o \
+		build/llvmlibc/libllvmlibc.a -o $(KERNEL_ELF)
 	@SIZE=$$(stat -f%z "$(KERNEL_ELF)" 2>/dev/null || stat -c%s "$(KERNEL_ELF)" 2>/dev/null); \
 	echo "$(GREEN)✓ Kernel ELF built ($$SIZE bytes)$(NC)"
 
@@ -246,6 +250,7 @@ clean:
 	@echo "$(RED)Cleaning build files...$(NC)"
 	rm -rf $(BUILD_DIR)
 	rm -f $(DISK_IMAGE)
+	@$(MAKE) -f Makefile.llvmlibc clean -s
 	@echo "$(GREEN)✓ Clean complete$(NC)"
 
 # Rebuild from scratch

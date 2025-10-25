@@ -411,12 +411,10 @@ void kernel_main(void) {
     // ========================================================================
     // TEST 5: Matrix Multiplication (Performance benchmark)
     // ========================================================================
-    // DISABLED: matrix_mul has 48KB static data causing kernel crash
-    // TODO: Move matrices to heap allocation instead of static globals
+    // 16x16 matrices using .data section (fully embedded in .mod file)
 
-    #ifdef ENABLE_MATRIX_MUL_TEST
     terminal_setcolor(VGA_YELLOW, VGA_BLACK);
-    terminal_writestring("[TEST 5] Matrix Multiplication (64x64)\n");
+    terminal_writestring("[TEST 5] Matrix Multiplication (16x16)\n");
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     terminal_writestring("  Running matrix multiplication benchmark...\n");
@@ -427,21 +425,19 @@ void kernel_main(void) {
     print_int(result);
     terminal_writestring("\n");
 
-    terminal_writestring("  Running 4 more iterations for profiling...\n");
+    if (result == -1) {
+        vga_print_color("  [ERROR] Memory allocation failed!\n", VGA_RED, VGA_BLACK);
+    } else {
+        terminal_writestring("  Running 4 more iterations for profiling...\n");
 
-    for (int i = 0; i < 4; i++) {
-        module_execute(&module_mgr, "matrix_mul");
+        for (int i = 0; i < 4; i++) {
+            module_execute(&module_mgr, "matrix_mul");
+        }
+
+        vga_print_color("  [OK] 5 iterations completed\n", VGA_GREEN, VGA_BLACK);
     }
 
-    vga_print_color("  [OK] 5 iterations completed\n", VGA_GREEN, VGA_BLACK);
-
     pause_for_key();
-    #else
-    terminal_setcolor(VGA_DARK_GREY, VGA_BLACK);
-    terminal_writestring("[TEST 5] Matrix Multiplication - SKIPPED (48KB static data issue)\n");
-    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
-    pause_for_key();
-    #endif
 
     // ========================================================================
     // PROFILING STATISTICS (one module at a time)
@@ -475,10 +471,8 @@ void kernel_main(void) {
     module_print_stats(&module_mgr, "primes");
     pause_for_key();
 
-    #ifdef ENABLE_MATRIX_MUL_TEST
     module_print_stats(&module_mgr, "matrix_mul");
     pause_for_key();
-    #endif
 
     // ========================================================================
     // PROFILING DATA EXPORT

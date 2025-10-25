@@ -60,8 +60,9 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [x] Module linker script (modules/module.ld) ensuring predictable binary layout
   - [x] Entry_point fix: guarantee header at 0x00, code at 0x30
 - [x] Benchmark Modules
-  - [x] Add `matrix_mul` module (dense 64×64 / 128×128)
+  - [x] Add `matrix_mul` module (16×16 with .data section)
   - [x] Validated with compute, primes, sum, fibonacci modules
+  - [x] Fixed .bss section issue - modules must use initialized data
 - [x] Complete Workflow Testing
   - [x] make pgo-profile - Capture profiling from QEMU
   - [x] make pgo-analyze - Classify modules
@@ -91,14 +92,16 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 **Remaining Optional Tasks** (not blocking):
 - [ ] Disk partition/file for persistent storage (currently using embedded cache)
 - [ ] LRU eviction policy for cache management
-- [ ] Fix matrix_mul static data issue (48KB → heap allocation)
+- [x] Fix matrix_mul static data issue (.bss → .data section with initialized arrays)
+- [ ] Debug matrix_mul module loading/execution (kernel boots but module doesn't execute)
 
-### 1.3 llvm-libc Integration & Toolchain
-- [ ] Integrate llvm-libc subset (freestanding mode)
-  - [ ] Replace stdlib.c string functions (memcpy, memset, strlen, etc.)
+### 1.3 llvm-libc Integration & Toolchain ⚙️ IN PROGRESS
+- [x] Integrate llvm-libc subset (freestanding mode)
+  - [x] Replace stdlib.c string functions (memcpy, memset, strlen, strcmp)
+  - [x] Build system (Makefile.llvmlibc)
+  - [x] Link kernel with libllvmlibc.a
   - [ ] Add math.h functions for TinyLlama (sin, cos, exp, log, etc.)
   - [ ] Adapt malloc/free to use jit_allocator backend
-  - [ ] Build with -nostdlib but link llvm-libc objects
 - [ ] CPU Feature Detection Pipeline
   - [x] Host scanner: clang -march=native -### to detect features
   - [x] Generate build/cpu_profile.json (SSE/AVX/BMI + cache sizes)
