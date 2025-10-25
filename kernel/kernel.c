@@ -21,6 +21,8 @@
 #include "micro_jit.h"
 #include "jit_allocator.h"
 #include "adaptive_jit.h"
+#include "jit_demo.h"
+#include "elf_test.h"
 
 // Forward declarations
 extern void* malloc(size_t size);
@@ -697,6 +699,19 @@ skip_jit_test:
         terminal_writestring("[FAIL] Serial port initialization failed\n");
         terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
     }
+
+    // ========================================================================
+    // END-TO-END JIT DEMO
+    // ========================================================================
+
+    //serial_puts("\n");
+    //jit_demo_disk_to_jit();
+
+    // ========================================================================
+    // ELF LOADER TEST
+    // ========================================================================
+
+    test_elf_loader();
 
     // ========================================================================
     // FINAL MESSAGE

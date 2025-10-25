@@ -201,6 +201,25 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
 		-c $(KERNEL_DIR)/adaptive_jit.c -o $(BUILD_DIR)/adaptive_jit.o
 
+	# Compile JIT demo
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
+		-c $(KERNEL_DIR)/jit_demo.c -o $(BUILD_DIR)/jit_demo.o
+
+	# Compile ELF loader
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
+		-c $(KERNEL_DIR)/elf_loader.c -o $(BUILD_DIR)/elf_loader.o
+
+	# Build test ELF module
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -c test/elf_test_module.c -o test/elf_test_module.o
+	$(LD) -m elf_i386 -e test_function test/elf_test_module.o -o test/elf_test_module.elf
+
+	# Embed test ELF as binary blob
+	$(LD) -m elf_i386 -r -b binary -o $(BUILD_DIR)/elf_test_module_embed.o test/elf_test_module.elf
+
+	# Compile ELF test
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
+		-c $(KERNEL_DIR)/elf_test.c -o $(BUILD_DIR)/elf_test.o
+
 	# Compile bitcode module loader
 	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
 		-c $(KERNEL_DIR)/bitcode_module.c -o $(BUILD_DIR)/bitcode_module.o
@@ -228,7 +247,7 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 		$(BUILD_DIR)/jit_allocator_test.o $(BUILD_DIR)/profiling_export.o \
 		$(BUILD_DIR)/cache_loader.o $(BUILD_DIR)/fat16.o $(BUILD_DIR)/fat16_test.o $(BUILD_DIR)/idt.o $(BUILD_DIR)/idt_stub.o \
 		$(BUILD_DIR)/pic.o $(BUILD_DIR)/micro_jit.o $(BUILD_DIR)/function_profiler.o $(BUILD_DIR)/adaptive_jit.o \
-		$(BUILD_DIR)/bitcode_module.o \
+		$(BUILD_DIR)/jit_demo.o $(BUILD_DIR)/elf_loader.o $(BUILD_DIR)/elf_test.o $(BUILD_DIR)/elf_test_module_embed.o $(BUILD_DIR)/bitcode_module.o \
 		$(CACHE_OBJECTS) $(BUILD_DIR)/cxx_runtime.o $(BUILD_DIR)/cxx_test.o \
 		build/llvmlibc/libllvmlibc.a -o $(KERNEL_ELF)
 	@SIZE=$$(stat -f%z "$(KERNEL_ELF)" 2>/dev/null || stat -c%s "$(KERNEL_ELF)" 2>/dev/null); \

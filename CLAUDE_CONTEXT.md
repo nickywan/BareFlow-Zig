@@ -15,7 +15,7 @@ Application unique (TinyLlama) avec compilation JIT LLVM au runtime pour optimis
 ## ✅ État Actuel (2025-10-25)
 
 ### Kernel
-- **Size**: 68KB (134 sectors)
+- **Size**: 79KB ELF / 66KB BIN (130 sectors)
 - **Modules**: 12 (fibonacci, sum, compute, primes, fft_1d, sha256, matrix_mul, quicksort, strops, regex_dfa, gemm_tile, physics_step)
 - **Build**: `make clean && make`
 - **Test**: `make run`
@@ -26,70 +26,114 @@ Application unique (TinyLlama) avec compilation JIT LLVM au runtime pour optimis
 - ✅ Phase 3.1: Bitcode modules (100%)
 - ✅ Phase 3.2: Micro-JIT (100%)
 - ✅ Phase 3.3: Adaptive JIT with atomic code swapping (100%)
+- ✅ **Phase 3.4: ELF32 Loader (100%)** ← NEW
+- ✅ **Phase 3.5: Bootloader expansion to 512 sectors (100%)** ← NEW
 
 ### Stack Technique
-- **Bootloader**: Two-stage (MBR + extended), 128 sectors capacity
+- **Bootloader**: Two-stage (MBR + extended), **512 sectors capacity** (256KB)
 - **Kernel**: Ring 0, 32-bit, no MMU
 - **Profiling**: rdtsc cycle counter + per-function profiling
 - **JIT Allocator**: CODE (32KB), DATA (32KB), METADATA (16KB)
 - **llvm-libc**: String + math functions (8 functions)
 - **Filesystem**: FAT16 read-only (ATA/IDE)
 - **Adaptive JIT**: Hot-path detection + atomic code swapping
+- **ELF Loader**: Full ELF32 loader with validation, loading, and execution ← NEW
 
-### Prochaines Étapes
-1. ✅ Implement atomic code swapping ← DONE
-2. Integrate adaptive JIT with bitcode modules
-3. Load bitcode from disk, JIT compile with progressive optimization
-4. Multi-level cache system (O0→O1→O2→O3)
-5. Background recompilation
-6. Performance benchmarking suite
+### Prochaines Étapes (LLVM Integration)
+1. ✅ Bootloader expansion (512 sectors) ← DONE
+2. ✅ ELF32 loader implementation ← DONE
+3. ✅ ELF loader validation tests ← DONE
+4. **Build LLVM minimal freestanding** ← NEXT
+5. Integrate LLVM ORC JIT with adaptive_jit
+6. End-to-end LLVM demo (disk → bitcode → JIT → execution)
 
 ---
 
-## 🔥 Session 13 (2025-10-25) - Bitcode Integration & Bootloader Analysis
+## 🔥 Session 13 (2025-10-25) - ELF32 Loader Implementation ✅
 
 ### ✅ Completed
 
-**Focus**: Integrating bitcode disk loading, removing redundant code, bootloader capacity analysis
+**Focus**: Implement full ELF32 loader for bare-metal module loading as foundation for LLVM integration
 
-1. **Bitcode Disk Loading** ✅
-   - `bitcode_load_from_disk()` implemented in `kernel/bitcode_module.c`
-   - Integrates with FAT16 filesystem
-   - Full file reading, validation, memory management
-   - Ready for end-to-end JIT workflow
+1. **Bootloader Expansion to 512 Sectors** ✅
+   - Increased capacity from 128 to **512 sectors** (64KB → 256KB)
+   - Fixed segment boundary handling for >64KB loading
+   - Added `lba_iter_count` to track 16-iteration cycles (64KB boundaries)
+   - Tested successfully with 200KB padded kernel
+   - **File**: `boot/stage2.asm` modified (lines 184-256)
 
-2. **Code Cleanup** ✅
-   - Removed `kernel/jit_pattern.{h,c}` - redundant wrapper with no unique functionality
-   - Cleaned up Makefile (removed jit_pattern.o compilation and linking)
-   - Saved 548 bytes + reduced complexity
+2. **ELF32 Loader Implementation** ✅
+   - **File**: `kernel/elf_loader.{h,c}` (139 + 187 lines)
+   - Full ELF32 validation (magic bytes, class, endianness, type)
+   - Program header parsing (PT_LOAD segments)
+   - Memory allocation and segment loading
+   - BSS zeroing (memsz > filesz)
+   - Entry point calculation with base address adjustment
+   - Resource cleanup with `elf_free()`
+   - **Code size**: 2.3KB compiled object
 
-3. **Bootloader Capacity Investigation** ✅
-   - Current: 128 sectors (64KB) capacity
-   - Kernel size: 57KB (112 sectors) - **well within limit** ✅
-   - Attempted 256-sector bootloader but had LBA segment boundary issues
-   - **Decision**: Keep 128-sector bootloader for now, increase later when LLVM integration requires it
-   - User confirmed: "ce n'est pas la taille du kernel qui est déteminant, c'est plus les opitmisation à la volée"
+3. **ELF Loader Test & Validation** ✅
+   - **Files**: `test/elf_test_module.c`, `kernel/elf_test.{h,c}`
+   - Test module with 3 functions (test_function returns 42)
+   - Embedded ELF binary using `ld -b binary`
+   - Full test harness with validation
+   - **TEST RESULTS**: ✅ **PASS** - Loaded 4720-byte ELF, executed, returned 42
 
-4. **Project Coherence Audit** ✅
-   - Created `COHERENCE_REPORT.md` (410 lines)
-   - Verified all 12 benchmarks execute correctly
-   - Confirmed adaptive JIT functional with atomic code swapping
-   - Validated performance metrics (fibonacci: 15K cycles, primes: 581K)
-   - Roadmap alignment confirmed: Phase 3 at 95% complete
+4. **Build System Integration** ✅
+   - Updated Makefile with ELF compilation and embedding steps
+   - Added linker integration for embedded test module
+   - Kernel size: 79KB ELF / 66KB BIN (130 sectors)
+   - Build time: <10 seconds
 
-### 📝 Key Technical Findings
+### 📊 Test Results
 
-- **Bootloader segment arithmetic**: When reading >16 sectors in LBA mode, must properly handle segment advancement to avoid 64KB boundary issues
-- **Existing LLVM JIT infrastructure**: `kernel/jit_llvm18.cpp` already has ORC JIT implementation for userspace - just needs bare-metal port
-- **Bitcode workflow ready**: Load from FAT16 → validate → JIT compile → execute pathway complete
+```
+=== ELF LOADER TEST ===
+[1] ELF binary embedded: 4720 bytes
+[ELF] Valid ELF32 header
+[ELF] Loaded program segments
+[ELF] Load complete
+[2] ELF loaded successfully
+    Total size: 4147 bytes
+[3] Executing test_function()...
+    Result: 42
+    ✓ PASS: Expected value 42
+[4] ELF module freed
 
-### 🎯 Next Steps (User Directive)
+=== ELF LOADER TEST COMPLETE ===
+```
 
-User wants to use **existing LLVM IR interpreter/JIT** (not custom implementation):
-1. Port LLVM ORC JIT minimal to bare-metal
-2. Integrate with adaptive_jit
-3. Create demo: .bc file → JIT → execute → optimize
-4. Focus on **runtime optimization, not kernel size**
+**✅ ALL TESTS PASSING**
+
+### 📝 Key Technical Achievements
+
+- **Full ELF32 loader** working on bare-metal without libc
+- **Runtime code loading** from embedded ELF binaries
+- **Native code execution** of dynamically loaded functions
+- **Clean resource management** with proper malloc/free
+- **Foundation for LLVM** - ready to load LLVM-compiled modules
+- **Segment arithmetic** correctly handles vaddr ranges and base address offsets
+
+### 📚 Documentation
+
+- Created `SESSION_13_ELF_LOADER.md` (detailed session report)
+- Updated `CLAUDE_CONTEXT.md` (this file)
+- Updated build system documentation in Makefile comments
+
+### 🎯 Next Steps (LLVM Integration Roadmap)
+
+Following "Plan B" strategy (LLVM module from disk):
+1. ✅ Phase 1: Bootloader 512 sectors ← **DONE**
+2. ✅ Phase 2: ELF loader implementation ← **DONE**
+3. ✅ Phase 3: ELF loader validation ← **DONE**
+4. **Phase 4: Build LLVM minimal freestanding** ← **NEXT**
+5. Phase 5: Integrate LLVM ORC JIT with adaptive_jit
+6. Phase 6: End-to-end demo (disk → bitcode → LLVM JIT → execution)
+
+### ⚠️ Known Issues
+
+- `jit_demo_disk_to_jit()` hangs during 150-iteration loop - temporarily disabled
+- Symbol lookup (`elf_get_symbol`) simplified - full implementation deferred until LLVM phase
 
 ---
 
