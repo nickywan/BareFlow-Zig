@@ -222,20 +222,65 @@ typedef struct {
 
 ## 📏 Memory Budget
 
-### Conservative Estimate:
+### Userspace Measurements (LLVM 18.1.8):
+
+**Dynamic Linking** (test_jit_minimal):
 ```
-LLVM static libs:  ~500KB (stripped, MinSizeRel)
-JIT runtime:       ~100KB (baseline)
+Binary size:       31KB
+Shared library:    118MB (libLLVM-18.so.1)
+Total:             ~118MB (not viable for bare-metal)
+```
+
+**Static Library Sizes** (individual archives):
+```
+Core JIT components:
+  libLLVMOrcJIT.a:        5.1MB
+  libLLVMOrcTargetProcess.a: 368KB
+  libLLVMOrcDebugging.a:  240KB
+  libLLVMOrcShared.a:     96KB
+
+X86 Target (32-bit):
+  libLLVMX86CodeGen.a:    11MB
+  libLLVMX86Desc.a:       5.2MB
+  libLLVMX86AsmParser.a:  964KB
+  libLLVMX86Disassembler.a: 2.5MB
+
+Core Infrastructure:
+  libLLVMCodeGen.a:       18MB
+  libLLVMCore.a:          8.5MB
+  libLLVMAnalysis.a:      11MB
+  libLLVMSupport.a:       (included in above)
+-------------------------------------------
+Estimated total:         ~60MB unstripped
+```
+
+### Conservative Estimate (Bare-Metal):
+
+**With aggressive optimization** (-Os, strip, LTO, only X86 i686):
+```
+LLVM static libs:  ~2-5MB (stripped, MinSizeRel, X86 only)
+JIT runtime:       ~200KB (baseline + wrappers)
 Heap (working):    ~2MB (recommended)
 Code cache:        ~500KB (generated code)
 -------------------------------------------
-Total:             ~3.1MB
+Total:             ~5-8MB
+```
+
+**Optimistic target** (with custom LLVM build):
+```
+LLVM static libs:  ~500KB-1MB (MinSizeRel, X86 i686 only, no unused features)
+JIT runtime:       ~100KB (minimal wrapper)
+Heap (working):    ~1-2MB
+Code cache:        ~500KB
+-------------------------------------------
+Total:             ~2-4MB
 ```
 
 ### Target for Unikernel:
-- Binary size: <500KB (LLVM + app)
+- Binary size: <2MB (LLVM + app, first iteration)
+- Optimized target: <500KB (with custom LLVM build)
 - Runtime heap: 2MB dedicated
-- Total footprint: ~2.5MB
+- Total footprint: ~4-6MB (initial), ~2.5MB (optimized)
 
 ---
 
@@ -284,5 +329,37 @@ Total:             ~3.1MB
 
 ---
 
+## 🧪 Userspace Test Results
+
+### Test: test_jit_minimal.cpp
+**Date**: 2025-10-26
+**LLVM Version**: 18.1.8
+
+**Test Code**:
+- Creates simple `int add(int, int)` function via IRBuilder
+- Compiles with LLJIT
+- Executes: `add(42, 58) = 100`
+
+**Results**:
+```
+✓ Compilation: SUCCESS (clang++-18 -O2)
+✓ Execution: SUCCESS (add(42, 58) = 100)
+✓ Binary size: 31KB (dynamic linking)
+✓ Shared lib: 118MB (libLLVM-18.so.1)
+✗ Static linking: FAILED (no monolithic libLLVM-18.a)
+```
+
+**Conclusions**:
+1. ✅ LLVM 18 JIT works perfectly in userspace
+2. ✅ OrcJIT API is stable and functional
+3. ⚠️ Dynamic linking not viable for bare-metal (~118MB overhead)
+4. ⚠️ Static linking requires custom LLVM build or manual archive linking
+5. 📊 Estimated bare-metal footprint: **2-5MB** (conservative) or **500KB-1MB** (optimized)
+
+**Next Phase**: Design custom allocator and C++ runtime stubs for bare-metal LLVM integration.
+
+---
+
 **Created**: 2025-10-26
+**Updated**: 2025-10-26 (with userspace measurements)
 **For**: Phase 3 JIT Runtime Implementation
