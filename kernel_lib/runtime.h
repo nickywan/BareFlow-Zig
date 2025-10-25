@@ -19,11 +19,18 @@ extern "C" {
 // I/O - VGA Text Mode
 // ============================================================================
 
-void vga_init(void);
-void vga_putchar(char c);
-void vga_writestring(const char* str);
-void vga_setcolor(uint8_t fg, uint8_t bg);
-void vga_clear(void);
+void terminal_initialize(void);
+void terminal_putchar(char c);
+void terminal_writestring(const char* str);
+void terminal_setcolor(uint8_t fg, uint8_t bg);
+void terminal_write(const char* data, size_t size);
+
+// Aliases for convenience
+#define vga_init terminal_initialize
+#define vga_putchar terminal_putchar
+#define vga_writestring terminal_writestring
+#define vga_setcolor terminal_setcolor
+#define vga_write terminal_write
 
 // ============================================================================
 // I/O - Serial Port (COM1)

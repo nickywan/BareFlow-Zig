@@ -20,7 +20,7 @@ CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
 IO_SRCS = io/vga.c io/serial.c
 
 # Memory management
-MEM_SRCS = memory/malloc.c memory/string.c
+MEM_SRCS = memory/malloc.c memory/string.c memory/compiler_rt.c
 
 # CPU drivers
 CPU_SRCS = cpu/pic.c cpu/idt.c

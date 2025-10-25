@@ -17,8 +17,29 @@ extern "C" {
 // JIT PROFILING
 // ============================================================================
 
-// Forward declaration
-typedef struct jit_profile_t jit_profile_t;
+#define JIT_MAX_FUNCTIONS 32
+#define JIT_MAX_FUNC_NAME 32
+
+/**
+ * Function profiling data
+ */
+typedef struct {
+    char name[JIT_MAX_FUNC_NAME];
+    uint64_t call_count;
+    uint64_t total_cycles;
+    uint64_t min_cycles;
+    uint64_t max_cycles;
+    uint64_t last_start;  // Start timestamp for current call
+    int active;           // 1 if currently being profiled
+} jit_profile_entry_t;
+
+/**
+ * Global profiling state
+ */
+typedef struct jit_profile_t {
+    jit_profile_entry_t functions[JIT_MAX_FUNCTIONS];
+    int num_functions;
+} jit_profile_t;
 
 /**
  * Initialize profiling system
