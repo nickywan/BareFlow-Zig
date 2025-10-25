@@ -15,7 +15,9 @@ import argparse
 import json
 import pathlib
 import sys
-from typing import Dict, List, Tuple
+import shutil
+import subprocess
+from typing import Dict, List, Optional, Tuple
 
 
 def load_profile(path: pathlib.Path) -> Dict[str, object]:
@@ -59,6 +61,28 @@ def main() -> int:
         type=pathlib.Path,
         help="Optional path to write JSON plan",
     )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Recompile modules according to suggested optimization levels",
+    )
+    parser.add_argument(
+        "--module-dir",
+        type=pathlib.Path,
+        default=pathlib.Path("modules"),
+        help="Directory containing module source files (default: modules/)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=pathlib.Path,
+        default=pathlib.Path("cache"),
+        help="Directory to place recompiled modules when using --apply (default: cache/)",
+    )
+    parser.add_argument(
+        "--profile-tag",
+        type=str,
+        help="Profile tag to use for cache output (defaults to value in profile JSON or 'default')",
+    )
     args = parser.parse_args()
 
     data = load_profile(args.profile)
@@ -92,22 +116,114 @@ def main() -> int:
             }
         )
 
+    plan = {
+        "profile_source": str(args.profile),
+        "generated_from": data.get("hostname"),
+        "generated_at": data.get("generated_at"),
+        "profile_tag": data.get("profile_tag"),
+        "call_threshold": args.call_threshold,
+        "cycle_threshold": args.cycle_threshold,
+        "modules": plan_modules,
+    }
     if args.plan_out:
-        plan = {
-            "profile_source": str(args.profile),
-            "generated_from": data.get("hostname"),
-            "generated_at": data.get("generated_at"),
-            "profile_tag": data.get("profile_tag"),
-            "call_threshold": args.call_threshold,
-            "cycle_threshold": args.cycle_threshold,
-            "modules": plan_modules,
-        }
         args.plan_out.parent.mkdir(parents=True, exist_ok=True)
         with args.plan_out.open("w", encoding="utf-8") as fh:
             json.dump(plan, fh, indent=2)
         print(f"\nWrote plan to {args.plan_out}")
 
+    if args.apply:
+        apply_recompile(plan, args.module_dir, args.output_dir, args.profile_tag)
+
     return 0
+
+
+def apply_recompile(plan: Dict[str, object], module_dir: pathlib.Path, output_dir: pathlib.Path, profile_tag_override: Optional[str]) -> None:
+    compiler = detect_compiler()
+    objcopy = detect_objcopy()
+    profile_tag = profile_tag_override or plan.get("profile_tag") or "default"
+    print(f"\nApplying plan using compiler '{compiler}' and objcopy '{objcopy}'")
+    print(f"Output cache: {output_dir}/ {profile_tag}")
+
+    target_dir = output_dir / str(profile_tag)
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    base_flags = [
+        "-m32",
+        "-ffreestanding",
+        "-nostdlib",
+        "-fno-pie",
+        "-fno-stack-protector",
+        "-Wall",
+        "-Wextra",
+    ]
+
+    alias_map = {
+        "sum": module_dir / "simple_sum.c",
+        "primes": module_dir / "primes.c",
+    }
+
+    for mod in plan.get("modules", []):
+        name = mod.get("name")
+        level = mod.get("suggested_opt", "O0")
+
+        if not name:
+            continue
+        src = module_dir / f"{name}.c"
+        if not src.exists():
+            src = alias_map.get(name, src)
+        if not src.exists():
+            print(f"[WARN] Source not found for module '{name}' ({src})")
+            continue
+
+        opt_flag = f"-{level.lower()}"
+        if level == "O0":
+            # still generate baseline
+            opt_flag = "-O0"
+        elif level in {"O1", "O2", "O3"}:
+            opt_flag = f"-{level.lower()}"
+        else:
+            opt_flag = "-O2"
+
+        print(f"\nCompiling {name} with {opt_flag} ...")
+        tmp_o = target_dir / f"{name}_{level}.o"
+        tmp_mod = target_dir / f"{name}_{level}.mod"
+
+        cmd = [compiler, *base_flags, opt_flag, "-c", str(src), "-o", str(tmp_o)]
+        run_or_fail(cmd, f"compile {name}")
+
+        obj_cmd = [objcopy, "-O", "binary", str(tmp_o), str(tmp_mod)]
+        run_or_fail(obj_cmd, f"objcopy {name}")
+        tmp_o.unlink(missing_ok=True)
+
+        final_mod = target_dir / f"{name}.mod"
+        shutil.copy2(tmp_mod, final_mod)
+
+        print(f"  -> {tmp_mod} ({tmp_mod.stat().st_size} bytes)")
+        print(f"  -> active copy: {final_mod}")
+
+
+def detect_compiler() -> str:
+    for candidate in ("clang-18", "clang"):
+        if shutil.which(candidate):
+            return candidate
+    raise RuntimeError("clang compiler not found (expected clang-18 or clang)")
+
+
+def detect_objcopy() -> str:
+    for candidate in ("llvm-objcopy-18", "llvm-objcopy", "objcopy"):
+        if shutil.which(candidate):
+            return candidate
+    raise RuntimeError("objcopy not found (tried llvm-objcopy-18, llvm-objcopy, objcopy)")
+
+
+def run_or_fail(cmd: List[str], context: str) -> None:
+    print("  ", " ".join(cmd))
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if proc.returncode != 0:
+        print(proc.stdout)
+        print(proc.stderr, file=sys.stderr)
+        raise RuntimeError(f"Failed to {context}")
+
 
 
 if __name__ == "__main__":

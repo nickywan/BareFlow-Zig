@@ -68,3 +68,4 @@ test_modules_userspace
 fluid.img
 build/cpu_profile.json
 kernel/auto_cpu_flags.mk
+cache/

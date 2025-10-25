@@ -90,6 +90,7 @@
 - Export footer text now references the planned host PGO tooling instead of a non-existent script.
 - `tools/gen_cpu_profile.py` captures host CPU features and emits both JSON metadata and Makefile flag include.
 - Generated profiling JSON (`build/profiling_export.json`) analyzed via `tools/pgo_recompile.py`, producing `build/pgo_plan.json` with O1/O2/O3 recommendations (`compute` marked O3 hot path).
+- Applied plan with `--apply`, producing cached modules in `cache/<profile_tag>/compute_O3.mod` and `fibonacci_O1.mod`; warned about missing standalone sources for embedded modules (`sum`/`primes`).
 
 ### ✅ Follow-up Fixes
 - Serial loopback test now polls the line-status register before reading the byte, preventing false negatives on slower UART emulations.

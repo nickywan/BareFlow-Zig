@@ -52,8 +52,8 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] LRU eviction policy for cache management
 - [ ] Offline Recompilation Pipeline
   - [x] Implement `tools/pgo_recompile.py` to parse profiling JSON and emit plan
-  - [ ] Trigger LLVM recompilation with -O2/-O3 + PGO
-  - [ ] Generate optimized .mod files
+  - [x] Trigger LLVM recompilation with -O2/-O3 recommendations (cache output)
+  - [x] Generate optimized .mod files in host cache directory
   - [ ] Update cache on disk/image
 - [ ] Benchmark Modules
   - [ ] Add `matrix_mul` module (dense 64×64 / 128×128)
@@ -70,13 +70,13 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Adapt malloc/free to use jit_allocator backend
   - [ ] Build with -nostdlib but link llvm-libc objects
 - [ ] CPU Feature Detection Pipeline
-  - [ ] Host scanner: clang -march=native -### to detect features
-  - [ ] Generate build/cpu_profile.json (SSE/AVX/BMI + cache sizes)
-  - [ ] Auto-generate kernel/auto_cpu_flags.mk for Makefile
+  - [x] Host scanner: clang -march=native -### to detect features
+  - [x] Generate build/cpu_profile.json (SSE/AVX/BMI + cache sizes)
+  - [x] Auto-generate kernel/auto_cpu_flags.mk for Makefile
   - [ ] Runtime CPUID validation at boot
   - [ ] Tag benchmark results with CPU profile (e.g., matrix_mul_AVX2)
 - [ ] Host-tuned build workflow
-  - [ ] Script tools/gen_cpu_profile.py for feature detection
+  - [x] Script tools/gen_cpu_profile.py for feature detection
   - [ ] Compile kernel/modules with -march=native on target machine
   - [ ] Validate llvm-libc API coverage for benchmarks
   - [ ] Document llvm-libc gaps and workarounds
