@@ -1,12 +1,49 @@
-# CLAUDE CONTEXT - Fluid OS Development
+# CLAUDE CONTEXT - BareFlow Development
 
 **Date**: 2025-10-25
 **Branch**: `claude/merge-interface-runtime-011CUMDiW4omhPaJemQSVuoR`
-**Last Session**: Session 9 - Bitcode Module System & Micro-JIT Foundation
+**Projet**: Unikernel Ring 0 + LLVM JIT Runtime + llvm-libc
+
+## Vision
+
+**BareFlow = Unikernel + LLVM JIT à la volée + llvm-libc**
+
+Application unique (TinyLlama) avec compilation JIT LLVM au runtime pour optimisation adaptative sans downtime.
 
 ---
 
-## 🔥 Session 9 (2025-10-25 Evening) - Bitcode Module System
+## ✅ État Actuel (2025-10-25)
+
+### Kernel
+- **Size**: 82KB (161 sectors)
+- **Modules**: 12 (fibonacci, sum, compute, primes, fft_1d, sha256, matrix_mul, quicksort, strops, regex_dfa, gemm_tile, physics_step)
+- **Build**: `make clean && make`
+- **Test**: `make run`
+
+### Phases Complètes
+- ✅ Phase 1: Module system + profiling (100%)
+- ✅ Phase 2.1: FAT16 filesystem + disk I/O (95%)
+- ⚡ Phase 3.1: Bitcode modules (60%)
+- 🔄 Phase 3.2: Micro-JIT (40%)
+
+### Stack Technique
+- **Bootloader**: Two-stage (MBR + extended), 128 sectors capacity
+- **Kernel**: Ring 0, 32-bit, no MMU
+- **Profiling**: rdtsc cycle counter
+- **JIT Allocator**: CODE (256KB), DATA (512KB), METADATA (128KB)
+- **llvm-libc**: String + math functions (8 functions)
+- **Filesystem**: FAT16 read-only (ATA/IDE)
+
+### Prochaines Étapes
+1. Debug fibonacci pattern in micro_jit.c
+2. Integrate micro-JIT with module_loader
+3. Load bitcode from disk, JIT compile, execute
+4. Hot-path detection (100/1000/10000 calls)
+5. Atomic code swap
+
+---
+
+## 🔥 Sessions 7-9 (2025-10-25) - Summary
 
 ### ✅ Completed (Phase 3.1 - 60% Done)
 
