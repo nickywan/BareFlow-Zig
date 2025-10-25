@@ -440,6 +440,32 @@ void kernel_main(void) {
     pause_for_key();
 
     // ========================================================================
+    // TEST 6: FFT 1D
+    // ========================================================================
+    terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+    terminal_writestring("[TEST 6] FFT 1D (32 samples)\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+    result = module_execute(&module_mgr, "fft_1d");
+    terminal_writestring("  Result (checksum): ");
+    print_int(result);
+    terminal_writestring("\n");
+
+    pause_for_key();
+
+    // ========================================================================
+    // TEST 7: SHA256
+    // ========================================================================
+    terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+    terminal_writestring("[TEST 7] SHA256 (1KB)\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+    result = module_execute(&module_mgr, "sha256");
+    terminal_writestring("  Result (checksum): ");
+    print_int(result);
+    terminal_writestring("\n");
+
+    pause_for_key();
+
+    // ========================================================================
     // PROFILING STATISTICS (one module at a time)
     // ========================================================================
 
