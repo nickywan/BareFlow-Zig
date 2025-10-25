@@ -16,6 +16,7 @@
 // ============================================================================
 
 #define BITCODE_MAGIC 0x4C4C4243  // "LLBC" (LLVM Bitcode)
+#define PATTERN_MAGIC 0x50415454  // "PATT" (Pattern-based JIT)
 #define MAX_BITCODE_NAME 32
 #define MAX_ENTRY_NAME 64
 
