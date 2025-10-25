@@ -205,6 +205,10 @@ $(KERNEL_ELF): $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/kernel.c $(KERNEL_DIR)/stdl
 	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
 		-c $(KERNEL_DIR)/bitcode_module.c -o $(BUILD_DIR)/bitcode_module.o
 
+	# Compile JIT pattern system
+	$(CC) -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra $(CFLAGS_MODE) $(CFLAGS_CPU) $(CFLAGS_COMMON) \
+		-c $(KERNEL_DIR)/jit_pattern.c -o $(BUILD_DIR)/jit_pattern.o
+
 	$(ASM) -f elf32 $(KERNEL_DIR)/idt_stub.asm -o $(BUILD_DIR)/idt_stub.o
 
 	# Compile C++ runtime
