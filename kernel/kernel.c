@@ -16,6 +16,8 @@
 #include "cxx_test.h"
 #include "jit_allocator_test.h"
 #include "profiling_export.h"
+#include "fat16_test.h"
+#include "disk_module_loader.h"
 
 // Forward declarations
 extern void* malloc(size_t size);
@@ -203,6 +205,18 @@ void kernel_main(void) {
 
     // Wait for user to review JIT allocator test results
 #ifdef INTERACTIVE_MODE
+    terminal_writestring("\nPress any key to continue to FAT16 tests...\n");
+    wait_key();
+#endif
+    terminal_writestring("\n");
+
+    // Test FAT16 filesystem (will fail gracefully if no disk attached)
+    terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+    test_fat16_filesystem();
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    // Wait for user to review FAT16 test results
+#ifdef INTERACTIVE_MODE
     terminal_writestring("\nPress any key to continue to module tests...\n");
     wait_key();
 #endif
@@ -284,6 +298,35 @@ void kernel_main(void) {
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
     cache_load_modules(&module_mgr);
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    // Try loading modules from disk (FAT16)
+    terminal_setcolor(VGA_LIGHT_CYAN, VGA_BLACK);
+    terminal_writestring("[DISK] Attempting to load modules from FAT16...\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    fat16_fs_t fs;
+    if (fat16_init(&fs, 1, 0) == 0) {
+        terminal_setcolor(VGA_GREEN, VGA_BLACK);
+        terminal_writestring("  FAT16 initialized successfully on drive 1\n");
+        terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+        int disk_loaded = disk_load_all_modules(&module_mgr, &fs);
+        if (disk_loaded > 0) {
+            terminal_setcolor(VGA_GREEN, VGA_BLACK);
+            terminal_writestring("  Loaded ");
+            print_int(disk_loaded);
+            terminal_writestring(" modules from disk\n");
+            terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+        } else {
+            terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+            terminal_writestring("  No .MOD files found on disk\n");
+            terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+        }
+    } else {
+        terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+        terminal_writestring("  FAT16 init failed, using embedded modules only\n");
+        terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+    }
 
     terminal_setcolor(VGA_GREEN, VGA_BLACK);
     terminal_writestring("\n[OK] Loaded ");
