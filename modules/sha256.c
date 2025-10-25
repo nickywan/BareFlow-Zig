@@ -60,6 +60,14 @@ static void sha256_transform(uint32_t state[8], const uint8_t data[64]) {
     state[4] += e; state[5] += f; state[6] += g; state[7] += h;
 }
 
+// Simple inline memcpy for module
+static void* my_memcpy(void* dst, const void* src, int n) {
+    char* d = (char*)dst;
+    const char* s = (const char*)src;
+    while (n--) *d++ = *s++;
+    return dst;
+}
+
 static int sha256_benchmark(void) {
     static uint8_t data[1024] = {1}; // 1KB test data (.data section)
     uint32_t state[8] = {
