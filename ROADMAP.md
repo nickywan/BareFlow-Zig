@@ -89,11 +89,19 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 - [x] Critical bug fixed: -o3 vs -O3 flag generation in pgo_recompile.py
 - [x] Full workflow validated: profile → classify → recompile → embed → boot → measure
 
+**Session 5 Progress** (2025-10-25):
+- [x] Fixed 7-module loading bug (fft_1d, sha256, matrix_mul now load correctly)
+- [x] Added stub functions to embedded_modules.h for cache override system
+- [x] Validated complete PGO workflow with 7 modules (20 total calls)
+- [x] Measured optimized performance: fibonacci 1.30x, compute 1.07x, fft_1d 1.09x, sha256 1.06x
+- [x] Last working commit: caaf48d (7 modules, 50KB kernel)
+
 **Remaining Optional Tasks** (not blocking):
 - [ ] Disk partition/file for persistent storage (currently using embedded cache)
 - [ ] LRU eviction policy for cache management
 - [x] Fix matrix_mul static data issue (.bss → .data section with initialized arrays)
-- [ ] Debug matrix_mul module loading/execution (kernel boots but module doesn't execute)
+- [x] Debug matrix_mul module loading/execution (FIXED - required stub in embedded_modules.h)
+- [ ] Debug 9-module boot failure (quicksort + strops cause complete boot hang)
 
 ### 1.3 llvm-libc Integration & Toolchain ✅ COMPLETED
 - [x] Integrate llvm-libc subset (freestanding mode)
@@ -114,7 +122,7 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Validate llvm-libc API coverage for benchmarks
   - [ ] Document llvm-libc gaps and workarounds
 
-### 1.4 Module System Improvements ✅ COMPLETED (Benchmarks)
+### 1.4 Module System Improvements (IN PROGRESS)
 - [ ] Dynamic module loading from disk
   - [ ] FAT16 filesystem support (read-only, minimal)
   - [ ] Module loader from disk sectors
@@ -123,10 +131,22 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
   - [ ] Per-function profiling granularity
   - [ ] Call graph tracking
   - [ ] Memory allocation per module
-- [x] Additional benchmark modules
+- [x] Additional benchmark modules (✅ COMPLETED)
   - [x] `fft_1d`: radix-2 FFT (32 samples) - memory stride, trig, complex arithmetic
   - [x] `sha256`: SHA256 hash (1KB chunks) - memory bandwidth, bitwise ops
+  - [x] `quicksort`: recursive sorting (128 elements, 5 iterations) - branch prediction tests
+  - [x] `strops`: string operations (100 iterations) - memory access patterns
   - [x] Capture cycle counts via existing PGO workflow
+- [x] Module loading system fixes (✅ COMPLETED)
+  - [x] Fixed 7-module loading (fft_1d, sha256, matrix_mul)
+  - [x] Added stub functions for cache override system
+  - [x] Validated module execution with profiling export
+- [ ] Debug boot failure with 9 modules (BLOCKER)
+  - [x] Created quicksort.c and strops.c modules
+  - [ ] Kernel fails to boot with 9 modules (no serial output)
+  - [ ] Last working: 7 modules (commit caaf48d)
+  - [ ] Current broken: 9 modules (commit 4ef737f)
+  - [ ] Investigation needed: stack overflow, memory corruption, or size limits
 
 ## Phase 2: Kernel Extensions
 
@@ -348,4 +368,4 @@ A bare-metal unikernel capable of running TinyLlama with real-time JIT optimizat
 ---
 
 **Last Updated**: 2025-10-25
-**Status**: Phase 1.2 ✅ **COMPLETE & VALIDATED** - PGO system fully operational with real performance gains (45-88% improvement), moving to Phase 1.3 (llvm-libc integration)
+**Status**: Phase 1.2 ✅ **COMPLETE & VALIDATED** - PGO system fully operational with 7 modules (fibonacci, sum, compute, primes, fft_1d, sha256, matrix_mul). Real performance gains measured: 1.06x-1.30x speedup with optimized recompilation. Phase 1.4 in progress: additional benchmarks created (quicksort, strops), investigating 9-module boot failure.
