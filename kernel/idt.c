@@ -26,8 +26,11 @@ extern void isr_bound(void);
 extern void isr_invalid_op(void);
 extern void isr_gpf(void);
 extern void isr_page_fault(void);
+extern void irq_timer(void);
+extern void irq_keyboard(void);
 
 static struct idt_entry idt[256];
+static volatile uint32_t timer_ticks = 0;
 
 static void set_entry(int index, uint32_t offset, uint16_t selector, uint8_t type_attr) {
     idt[index].offset_low = offset & 0xFFFF;
@@ -43,6 +46,19 @@ void exception_handler(void) {
     terminal_writestring("\n[EXCEPTION] CPU Exception caught!\n");
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
     while(1) { asm("hlt"); }  // Halt
+}
+
+// Timer IRQ handler
+void timer_handler(void) {
+    extern void pic_send_eoi(int);
+    timer_ticks++;
+    pic_send_eoi(0);
+}
+
+// Keyboard IRQ handler (stub)
+void keyboard_handler(void) {
+    extern void pic_send_eoi(int);
+    pic_send_eoi(1);
 }
 
 void idt_init(void) {
@@ -61,6 +77,10 @@ void idt_init(void) {
     set_entry(6, (uint32_t)isr_invalid_op, 0x08, 0x8E);
     set_entry(13, (uint32_t)isr_gpf, 0x08, 0x8E);
     set_entry(14, (uint32_t)isr_page_fault, 0x08, 0x8E);
+
+    // IRQ handlers (remapped to 0x20-0x2F)
+    set_entry(0x20, (uint32_t)irq_timer, 0x08, 0x8E);     // IRQ0
+    set_entry(0x21, (uint32_t)irq_keyboard, 0x08, 0x8E); // IRQ1
 
     struct idt_ptr ptr;
     ptr.limit = sizeof(idt) - 1;

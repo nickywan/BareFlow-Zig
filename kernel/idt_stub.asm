@@ -1,6 +1,8 @@
 [BITS 32]
 
 extern exception_handler
+extern timer_handler
+extern keyboard_handler
 
 global default_isr
 global isr_div_zero
@@ -12,6 +14,8 @@ global isr_bound
 global isr_invalid_op
 global isr_gpf
 global isr_page_fault
+global irq_timer
+global irq_keyboard
 
 ; Default ISR
 default_isr:
@@ -83,4 +87,17 @@ isr_common:
     pop ds
     popa
     add esp, 8      ; Remove error code and int number
+    iret
+
+; IRQ handlers
+irq_timer:
+    pusha
+    call timer_handler
+    popa
+    iret
+
+irq_keyboard:
+    pusha
+    call keyboard_handler
+    popa
     iret
