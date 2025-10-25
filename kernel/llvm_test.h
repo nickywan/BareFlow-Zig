@@ -10,4 +10,9 @@
  */
 void test_llvm_modules(void);
 
+/**
+ * Test LLVM PGO suite with compute-intensive modules
+ */
+void test_llvm_pgo_suite(void);
+
 #endif // LLVM_TEST_H
