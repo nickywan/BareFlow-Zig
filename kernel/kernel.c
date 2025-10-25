@@ -10,6 +10,7 @@
 #include "vga.h"
 #include "module_loader.h"
 #include "embedded_modules.h"
+#include "cache_loader.h"
 #include "keyboard.h"
 #include "cxx_runtime.h"
 #include "cxx_test.h"
@@ -276,6 +277,12 @@ void kernel_main(void) {
 
     terminal_setcolor(VGA_LIGHT_GREEN, VGA_BLACK);
     terminal_writestring("[DEBUG] Modules loaded OK\n");
+
+    // Load optimized modules from cache (if available)
+    terminal_setcolor(VGA_LIGHT_MAGENTA, VGA_BLACK);
+    terminal_writestring("[CACHE] Loading optimized modules...\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+    cache_load_modules(&module_mgr);
     terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
 
     terminal_setcolor(VGA_GREEN, VGA_BLACK);
@@ -402,6 +409,32 @@ void kernel_main(void) {
     pause_for_key();
 
     // ========================================================================
+    // TEST 5: Matrix Multiplication (Performance benchmark)
+    // ========================================================================
+
+    terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+    terminal_writestring("[TEST 5] Matrix Multiplication (64x64)\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+
+    terminal_writestring("  Running matrix multiplication benchmark...\n");
+
+    result = module_execute(&module_mgr, "matrix_mul");
+
+    terminal_writestring("  Result (checksum): ");
+    print_int(result);
+    terminal_writestring("\n");
+
+    terminal_writestring("  Running 4 more iterations for profiling...\n");
+
+    for (int i = 0; i < 4; i++) {
+        module_execute(&module_mgr, "matrix_mul");
+    }
+
+    vga_print_color("  [OK] 5 iterations completed\n", VGA_GREEN, VGA_BLACK);
+
+    pause_for_key();
+
+    // ========================================================================
     // PROFILING STATISTICS (one module at a time)
     // ========================================================================
 
@@ -431,6 +464,9 @@ void kernel_main(void) {
     pause_for_key();
 
     module_print_stats(&module_mgr, "primes");
+    pause_for_key();
+
+    module_print_stats(&module_mgr, "matrix_mul");
     pause_for_key();
 
     // ========================================================================

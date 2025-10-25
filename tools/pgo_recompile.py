@@ -160,6 +160,7 @@ def apply_recompile(plan: Dict[str, object], module_dir: pathlib.Path, output_di
     alias_map = {
         "sum": module_dir / "simple_sum.c",
         "primes": module_dir / "primes.c",
+        "matrix_mul": module_dir / "matrix_mul.c",
     }
 
     for mod in plan.get("modules", []):
@@ -175,25 +176,40 @@ def apply_recompile(plan: Dict[str, object], module_dir: pathlib.Path, output_di
             print(f"[WARN] Source not found for module '{name}' ({src})")
             continue
 
-        opt_flag = f"-{level.lower()}"
+        # DO NOT use .lower() - clang needs -O3 not -o3!
+        opt_flag = f"-{level}"
         if level == "O0":
-            # still generate baseline
             opt_flag = "-O0"
         elif level in {"O1", "O2", "O3"}:
-            opt_flag = f"-{level.lower()}"
+            opt_flag = f"-{level}"
         else:
             opt_flag = "-O2"
 
         print(f"\nCompiling {name} with {opt_flag} ...")
         tmp_o = target_dir / f"{name}_{level}.o"
+        tmp_elf = target_dir / f"{name}_{level}.elf"
         tmp_mod = target_dir / f"{name}_{level}.mod"
 
+        # Compile to object file
         cmd = [compiler, *base_flags, opt_flag, "-c", str(src), "-o", str(tmp_o)]
         run_or_fail(cmd, f"compile {name}")
 
-        obj_cmd = [objcopy, "-O", "binary", str(tmp_o), str(tmp_mod)]
-        run_or_fail(obj_cmd, f"objcopy {name}")
-        tmp_o.unlink(missing_ok=True)
+        # Link with module linker script
+        linker_script = module_dir / "module.ld"
+        if linker_script.exists():
+            link_cmd = ["ld", "-m", "elf_i386", "-T", str(linker_script), str(tmp_o), "-o", str(tmp_elf)]
+            run_or_fail(link_cmd, f"link {name}")
+            tmp_o.unlink(missing_ok=True)
+
+            # Extract binary from linked ELF
+            obj_cmd = [objcopy, "-O", "binary", str(tmp_elf), str(tmp_mod)]
+            run_or_fail(obj_cmd, f"objcopy {name}")
+            tmp_elf.unlink(missing_ok=True)
+        else:
+            # Fallback: extract directly from .o (old behavior)
+            obj_cmd = [objcopy, "-O", "binary", str(tmp_o), str(tmp_mod)]
+            run_or_fail(obj_cmd, f"objcopy {name}")
+            tmp_o.unlink(missing_ok=True)
 
         final_mod = target_dir / f"{name}.mod"
         shutil.copy2(tmp_mod, final_mod)
