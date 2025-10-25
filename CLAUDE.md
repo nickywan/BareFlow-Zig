@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 📌 Quick Context Recovery
+
+**For continuing a previous session**, read `CLAUDE_CONTEXT.md` first - it contains:
+- Current project state and recent changes
+- Last session's work and commits
+- Known issues and solutions
+- Exact next steps to take
+
 ## Project Overview
 
 **Fluid OS** is a bare-metal unikernel with LLVM-based runtime optimization capabilities. The system boots from a two-stage bootloader into a 32-bit protected mode kernel that supports dynamic module loading and profiling.
