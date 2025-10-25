@@ -80,9 +80,16 @@
 ### 🔜 Next Tasks (Phase 1.2)
 - [ ] Design optimized module cache structure on disk
 - [ ] Implement cache loader at boot with signature verification
-- [ ] Create offline recompilation pipeline (`tools/pgo_recompile.py`)
+- [ ] Wire offline recompilation pipeline into LLVM toolchain (build + cache update)
 - [ ] Add `matrix_mul` benchmark module for validation
 - [ ] Test end-to-end: profile → recompile → reload cycle
+
+### ✅ Follow-up Fixes
+- Serial loopback test now polls the line-status register before reading the byte, preventing false negatives on slower UART emulations.
+- Profiling export clamps min/max cycle values to zero when a module has not executed, avoiding `UINT64_MAX` in JSON payloads.
+- Export footer text now references the planned host PGO tooling instead of a non-existent script.
+- `tools/gen_cpu_profile.py` captures host CPU features and emits both JSON metadata and Makefile flag include.
+- Generated profiling JSON (`build/profiling_export.json`) analyzed via `tools/pgo_recompile.py`, producing `build/pgo_plan.json` with O1/O2/O3 recommendations (`compute` marked O3 hot path).
 
 ### ✅ Follow-up Fixes
 - Serial loopback test now polls the line-status register before reading the byte, preventing false negatives on slower UART emulations.
