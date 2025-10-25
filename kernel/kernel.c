@@ -466,6 +466,32 @@ void kernel_main(void) {
     pause_for_key();
 
     // ========================================================================
+    // TEST 8: Quicksort
+    // ========================================================================
+    terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+    terminal_writestring("[TEST 8] Quicksort (128 elements, 5 iterations)\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+    result = module_execute(&module_mgr, "quicksort");
+    terminal_writestring("  Result (checksum): ");
+    print_int(result);
+    terminal_writestring("\n");
+
+    pause_for_key();
+
+    // ========================================================================
+    // TEST 9: String Operations
+    // ========================================================================
+    terminal_setcolor(VGA_YELLOW, VGA_BLACK);
+    terminal_writestring("[TEST 9] String Operations (100 iterations)\n");
+    terminal_setcolor(VGA_LIGHT_GREY, VGA_BLACK);
+    result = module_execute(&module_mgr, "strops");
+    terminal_writestring("  Result (checksum): ");
+    print_int(result);
+    terminal_writestring("\n");
+
+    pause_for_key();
+
+    // ========================================================================
     // PROFILING STATISTICS (one module at a time)
     // ========================================================================
 

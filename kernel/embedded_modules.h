@@ -167,6 +167,40 @@ static const module_header_t matrix_mul_header = {
 };
 
 // ============================================================================
+// EMBEDDED MODULE: quicksort (stub - will be replaced by cache)
+// ============================================================================
+
+__attribute__((noinline, used))
+static int module_quicksort(void) {
+    return 0;  // Stub - real implementation in cache
+}
+
+static const module_header_t quicksort_header = {
+    .magic = MODULE_MAGIC,
+    .name = "quicksort",
+    .entry_point = (void*)module_quicksort,
+    .code_size = 1500,
+    .version = 1
+};
+
+// ============================================================================
+// EMBEDDED MODULE: strops (stub - will be replaced by cache)
+// ============================================================================
+
+__attribute__((noinline, used))
+static int module_strops(void) {
+    return 0;  // Stub - real implementation in cache
+}
+
+static const module_header_t strops_header = {
+    .magic = MODULE_MAGIC,
+    .name = "strops",
+    .entry_point = (void*)module_strops,
+    .code_size = 504,
+    .version = 1
+};
+
+// ============================================================================
 // MODULE REGISTRY
 // ============================================================================
 
@@ -178,6 +212,8 @@ static const module_header_t* embedded_modules[] = {
     &fft_1d_header,
     &sha256_header,
     &matrix_mul_header,
+    &quicksort_header,
+    &strops_header,
     NULL
 };
 
