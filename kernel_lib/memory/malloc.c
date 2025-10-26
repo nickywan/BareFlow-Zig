@@ -13,13 +13,16 @@
 // HEAP CONFIGURATION
 // ============================================================================
 
-#define HEAP_SIZE (256 * 1024)  // 256 KB heap
+#define HEAP_SIZE (64 * 1024 * 1024)  // 64 MB heap (for TinyLlama)
 static uint8_t heap[HEAP_SIZE] __attribute__((aligned(16)));
 static size_t heap_offset = 0;
 
 // ============================================================================
 // ALLOCATOR IMPLEMENTATION
 // ============================================================================
+
+// External serial for debugging
+extern void serial_puts(const char* str);
 
 void* malloc(size_t size) {
     if (size == 0)
@@ -28,8 +31,10 @@ void* malloc(size_t size) {
     // Align to 16 bytes
     size = (size + 15) & ~15;
 
-    if (heap_offset + size > HEAP_SIZE)
+    if (heap_offset + size > HEAP_SIZE) {
+        serial_puts("[malloc:OOM]");
         return NULL;
+    }
 
     void* ptr = &heap[heap_offset];
     heap_offset += size;

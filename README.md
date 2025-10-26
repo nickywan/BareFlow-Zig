@@ -98,20 +98,21 @@ Une application qui s'auto-profile, se recompile à chaud et s'optimise en temps
 
 ### Phase 3 (Hybrid Self-Optimizing) ⚠️ EN COURS
 ```
-┌─────────────────────────────────────────────────────┐
-│  Boot 1: [60MB] Full LLVM + LLVM-libc (static)      │
-│  ┌─────────────────────────────────────────────┐   │
-│  │  - LLVM Interpreter (execute IR directly)   │   │
-│  │  - LLVM OrcJIT (tiered compilation)         │   │
-│  │  - LLVM-libc (pure C, JIT-optimizable)      │   │
-│  │  - Profiler (track ALL calls + cycles)      │   │
-│  │  - Coverage (detect dead code)              │   │
-│  └─────────────────────────────────────────────┘   │
-│                                                     │
-│  Boot 100: [30MB] JIT O0→O3 on hot paths            │
-│  Boot 500: [10MB] Dead code eliminated              │
-│  Boot Final: [2-5MB] Pure native, LLVM removed      │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│  Boot 1: [60MB] Full LLVM + Runtime (static)         │
+│  ┌──────────────────────────────────────────────┐   │
+│  │  - LLVM Interpreter (execute IR directly)    │   │
+│  │  - LLVM OrcJIT (tiered compilation)          │   │
+│  │  - llvm-libc (malloc, memcpy - JIT-opt)      │   │
+│  │  - kernel_lib (VGA, serial, CPU - custom)    │   │
+│  │  - Profiler (track ALL calls + cycles)       │   │
+│  │  - Coverage (detect dead code)               │   │
+│  └──────────────────────────────────────────────┘   │
+│                                                      │
+│  Boot 100: [30MB] JIT O0→O3 on hot paths             │
+│  Boot 500: [10MB] Dead code eliminated               │
+│  Boot Final: [2-5MB] Pure native, LLVM removed       │
+└──────────────────────────────────────────────────────┘
 ```
 
 ### Why JIT for TinyLlama?

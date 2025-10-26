@@ -24,9 +24,10 @@ ASFLAGS = -target x86_64-unknown-none
 
 # C++ flags for 64-bit bare-metal
 CXXFLAGS = -target x86_64-unknown-none \
-           -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+           -ffreestanding -nostdlib -fno-pie -O0 -Wall -Wextra \
            -fno-exceptions -fno-rtti \
            -fno-stack-protector -mno-red-zone -mcmodel=kernel \
+           -fcf-protection=none \
            -DBARE_METAL \
            -I../../../kernel_lib
 
@@ -53,11 +54,24 @@ tinyllama_model.o: tinyllama_model.c tinyllama_model.h
 	@echo "  [CC]  $<"
 	@clang-18 -target x86_64-unknown-none -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
 	          -fno-stack-protector -mno-red-zone -mcmodel=kernel \
+	          -fcf-protection=none \
 	          -I../../../kernel_lib -c $< -o $@
 
-$(KERNEL): boot.o kernel.o tinyllama_model.o $(KERNEL_LIB)
-	@echo "  [LD]  $@"
-	@$(LD) $(LDFLAGS) boot.o kernel.o tinyllama_model.o $(KERNEL_LIB) -o $@
+malloc_simple.o: malloc_simple.c
+	@echo "  [CC]  $< (static heap override)"
+	@clang-18 -target x86_64-unknown-none -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	          -fno-stack-protector -mno-red-zone -mcmodel=kernel \
+	          -fcf-protection=none -c $< -o $@
+
+serial.o: serial.c
+	@echo "  [CC]  $< (serial I/O)"
+	@clang-18 -target x86_64-unknown-none -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	          -fno-stack-protector -mno-red-zone -mcmodel=kernel \
+	          -fcf-protection=none -c $< -o $@
+
+$(KERNEL): boot.o kernel.o tinyllama_model.o malloc_simple.o serial.o
+	@echo "  [LD]  $@ (standalone 64-bit, no kernel_lib)"
+	@$(LD) $(LDFLAGS) boot.o kernel.o tinyllama_model.o malloc_simple.o serial.o -o $@
 	@echo "  [INFO] Kernel size: $$(stat -c%s $@) bytes"
 
 iso: $(ISO)

@@ -51,6 +51,35 @@ Boot 1000:  [2-5MB]     Pure native export
 
 ---
 
+## 🔧 Runtime Strategy: Hybrid kernel_lib + llvm-libc
+
+**BareFlow uses a HYBRID approach** for runtime functions:
+
+### Custom (kernel_lib/) - Bare-Metal Drivers
+**Keep custom implementations for:**
+- **I/O**: VGA, serial, keyboard (hardware-specific, MMIO/ports)
+- **CPU**: rdtsc, cpuid, PIC, IDT (x86-64 specific instructions)
+- **Paging**: Page table setup (architecture-specific)
+
+**Why custom**: These are bare-metal drivers with hardware side-effects, non-JIT-optimizable, already working.
+
+### llvm-libc - JIT-Optimizable Functions
+**Migrate to llvm-libc for:**
+- **Memory**: malloc, free, realloc, calloc
+- **String**: memcpy, memset, memmove, strlen, strcmp
+- **Math** (future): sin, cos, sqrt, etc.
+
+**Why llvm-libc**:
+- Written in pure C (compilable to LLVM IR)
+- JIT-optimizable (profiling + auto-vectorization)
+- Example: `memcpy(dst, src, 512)` → JIT observes size → AVX2 specialized → **10× faster**
+
+**Status**: Documented (Session 36), implementation planned for Phase 6 (Sessions 41-45)
+
+**See**: `docs/architecture/LLVM_LIBC_STRATEGY.md` for complete migration plan
+
+---
+
 ## 📌 Session Recovery Protocol
 
 **IMPORTANT**: When starting a new session, follow this exact sequence:

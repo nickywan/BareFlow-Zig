@@ -31,7 +31,7 @@ pd_table:
 // Stack
 .align 16
 stack_bottom:
-    .skip 16384                         // 16 KB stack
+    .skip 1048576                       // 1 MB stack (was 16 KB)
 stack_top:
 
 .section .text

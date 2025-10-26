@@ -109,4 +109,5 @@ auto_cpu_flags.mk
 # Temporary files
 *.tmp
 *.bak
-*.log
+*.logtests/phase4/qemu_llvm_64/*.iso
+tests/phase4/qemu_llvm_64/isodir/

@@ -28,14 +28,11 @@
 // Heap Storage
 // ============================================================================
 
-// SOLUTION: Use static variables but initialize them at RUNTIME (not compile-time)
-#define HEAP_START_ADDR     0x2100000   // 33 MB - heap data start
-#define HEAP_INIT_MAGIC     0xDEADBEEF
-
-// Static variables - will be in .bss (garbage at boot), initialized on first malloc()
-static unsigned long heap_init_flag;
-static unsigned char* heap_ptr;
-static unsigned char* heap_end;
+// SOLUTION: Use a static array in .bss section
+// This ensures the heap is in the same memory region as the kernel
+// and properly mapped by the bootloader - no manual address needed!
+static unsigned char heap[HEAP_SIZE] __attribute__((aligned(16)));
+static unsigned long heap_offset = 0;
 
 // ============================================================================
 // malloc() - Bump Allocator
@@ -46,24 +43,20 @@ extern void serial_puts(const char* str);
 extern void serial_put_uint64(unsigned long value);
 
 void* malloc(unsigned long size) {
-    // Initialize heap on first call (check if flag is NOT the magic value)
-    if (heap_init_flag != HEAP_INIT_MAGIC) {
-        heap_ptr = (unsigned char*)HEAP_START_ADDR;
-        heap_end = (unsigned char*)(HEAP_START_ADDR + HEAP_SIZE);
-        heap_init_flag = HEAP_INIT_MAGIC;
-    }
+    if (size == 0)
+        return NULL;
 
     // Align size to 16 bytes
     size = (size + 15) & ~15;
 
     // Check if we have enough space
-    if (heap_ptr + size > heap_end) {
-        return NULL;
+    if (heap_offset + size > HEAP_SIZE) {
+        return NULL;  // Out of memory
     }
 
-    // Allocate by bumping pointer
-    void* ptr = heap_ptr;
-    heap_ptr += size;
+    // Allocate by bumping offset
+    void* ptr = &heap[heap_offset];
+    heap_offset += size;
 
     return ptr;
 }
@@ -133,12 +126,11 @@ void* realloc(void* ptr, unsigned long size) {
 // ============================================================================
 
 unsigned long malloc_get_usage(void) {
-    if (heap_init_flag != HEAP_INIT_MAGIC) return 0;
-    return (unsigned long)(heap_ptr - (unsigned char*)HEAP_START_ADDR);
+    return heap_offset;
 }
 
 unsigned long malloc_get_peak(void) {
-    return malloc_get_usage();  // Same as usage for bump allocator
+    return heap_offset;  // Same as usage for bump allocator
 }
 
 unsigned long malloc_get_heap_size(void) {

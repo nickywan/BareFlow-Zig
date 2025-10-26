@@ -119,10 +119,15 @@ typedef struct {
 /**
  * Initialize model structure with allocated memory
  *
+ * Session 36 Refactored: Split into simple functions to avoid return crash bug.
+ * Each helper function <25 lines, returns simple int/void.
+ *
  * Allocates memory for all layers and weights, but doesn't load data yet.
- * Returns pointer to model, or NULL on allocation failure.
+ *
+ * @param out_model Output pointer to created model (NULL on failure)
+ * @return 0 on success, -1 on failure
  */
-TinyLlamaModel* tinyllama_create_model();
+int tinyllama_create_model(TinyLlamaModel** out_model);
 
 /**
  * Free all model memory

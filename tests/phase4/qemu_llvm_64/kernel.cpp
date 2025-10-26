@@ -57,7 +57,7 @@ extern "C" void kernel_main() {
     println("");
     println("========================================");
     println("  BareFlow QEMU x86-64 Kernel");
-    println("  Session 34 - Model Weight Loading");
+    println("  Session 35 - Return Crash Debug");
     println("========================================");
     println("");
 
@@ -88,10 +88,11 @@ extern "C" void kernel_main() {
 
     println("");
     println("[Test 4] TinyLlama Model Loading:");
-    TinyLlamaModel* model = tinyllama_create_model();
+    TinyLlamaModel* model = nullptr;
+    int result = tinyllama_create_model(&model);
 
-    if (model) {
-        println("  Model structure created");
+    if (result == 0 && model) {
+        println("  \u2705 Model created successfully");
 
         // Load dummy weights
         if (tinyllama_load_weights(model) == 0) {
