@@ -2,9 +2,48 @@
  * TinyLlama Inference Implementation
  *
  * Bare-metal C implementation - no stdlib, optimized for -O0
+ * Session 41: Added profiler hooks for "Grow to Shrink" strategy
  */
 
 #include "tinyllama_inference.h"
+#include "profiler.h"
+
+// ============================================================================
+// Profiler Indices (Global - registered at init)
+// ============================================================================
+static int g_prof_matmul = -1;
+static int g_prof_rmsnorm = -1;
+static int g_prof_softmax = -1;
+static int g_prof_rope = -1;
+static int g_prof_swiglu = -1;
+static int g_prof_feedforward = -1;
+
+// ============================================================================
+// Profiler Initialization ("Grow to Shrink" Phase 1)
+// ============================================================================
+
+/**
+ * Initialize profiler and register hot path functions
+ * Call this before using any inference functions
+ */
+void tinyllama_profiler_init(void) {
+    profiler_init();
+
+    // Register critical functions for JIT compilation candidates
+    g_prof_matmul = profiler_register("matmul_int8");
+    g_prof_rmsnorm = profiler_register("rms_norm");
+    g_prof_softmax = profiler_register("softmax");
+    g_prof_rope = profiler_register("rope_encoding");
+    g_prof_swiglu = profiler_register("swiglu");
+    g_prof_feedforward = profiler_register("feed_forward");
+}
+
+/**
+ * Print profiler report (identifies hot paths for JIT)
+ */
+void tinyllama_profiler_report(void) {
+    profiler_report();
+}
 
 // ============================================================================
 // Math Utilities (Fast Approximations for Bare-Metal)
@@ -100,6 +139,9 @@ void softmax(float* x, uint32_t size) {
 // ============================================================================
 
 void matmul_int8(float* y, const QuantizedTensor* W, const float* x) {
+    // Profile hot path - most expensive operation
+    uint64_t start = profiler_start();
+
     // y = W * x where W is INT8 quantized
     for (uint32_t i = 0; i < W->rows; i++) {
         float sum = 0.0f;
@@ -110,6 +152,8 @@ void matmul_int8(float* y, const QuantizedTensor* W, const float* x) {
         }
         y[i] = sum;
     }
+
+    profiler_end(g_prof_matmul, start);
 }
 
 // ============================================================================
