@@ -1,0 +1,44 @@
+# Makefile for testing LLVM JIT static linking
+
+CXX = clang++-18
+LLVM_CONFIG = llvm-config-18
+
+CXXFLAGS = -O2 $(shell $(LLVM_CONFIG) --cxxflags)
+LDFLAGS = $(shell $(LLVM_CONFIG) --ldflags)
+LIBS = -lLLVM-18
+
+# Dynamic linking (default)
+test_jit_minimal: test_jit_minimal.cpp
+	@echo "Building with dynamic LLVM linking..."
+	$(CXX) $(CXXFLAGS) $< $(LDFLAGS) $(LIBS) -o $@
+	@echo "Binary size:"
+	@ls -lh $@
+	@file $@
+
+# Static linking (for bare-metal size estimate)
+test_jit_static: test_jit_minimal.cpp
+	@echo "Building with static LLVM linking..."
+	$(CXX) -O2 -static $(shell $(LLVM_CONFIG) --cxxflags) $< \
+		-L/usr/lib/llvm-18/lib \
+		/usr/lib/x86_64-linux-gnu/libLLVM-18.a \
+		-lpthread -ldl -lz -lm -ltinfo \
+		-o $@ 2>&1 | head -30 || true
+	@if [ -f $@ ]; then \
+		echo "✓ Static linking successful!"; \
+		echo "Binary size:"; \
+		ls -lh $@; \
+		file $@; \
+		strip $@ -o $@.stripped; \
+		echo "Stripped size:"; \
+		ls -lh $@.stripped; \
+	else \
+		echo "✗ Static linking failed (system LLVM may not support it)"; \
+	fi
+
+clean:
+	rm -f test_jit_minimal test_jit_static test_jit_static.stripped
+
+run: test_jit_minimal
+	./test_jit_minimal
+
+.PHONY: clean run

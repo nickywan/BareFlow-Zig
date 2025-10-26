@@ -1,13 +1,78 @@
-# Prerequisites
-*.d
+# BareFlow .gitignore
+# ===================
 
 # Object files
 *.o
 *.ko
 *.obj
 *.elf
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+*.bin
+!boot/*.bin
+!tinyllama/*.bin
+
+# Disk images
+*.img
+!tinyllama/tinyllama.img
+!bareflow_disk.img
+
+# LLVM/JIT artifacts
 *.bc
 *.ll
+*.dwo
+
+# Test binaries
+tests/phase3/test_*
+!tests/phase3/*.cpp
+!tests/phase3/*.c
+!tests/phase3/*.h
+!tests/phase3/Makefile*
+test_*
+!test_*.cpp
+!test_*.c
+
+# Build directory
+build/*.bin
+build/*.img
+build/*.elf
+build/*.json
+build/cpu_profile.json
+bin/
+
+# Cache directories
+cache/
+cacheold/
+llvm_modules/
+.cache/
+
+# IDE directories
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Prerequisites
+*.d
 
 # Linker output
 *.ilk
@@ -18,32 +83,11 @@
 *.gch
 *.pch
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
+# Shared objects
 *.dll
 *.so
 *.so.*
 *.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-*.bin
-
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
 
 # Kernel Module Compile Results
 *.mod*
@@ -54,20 +98,15 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-# debug information files
-*.dwo
-kernel.bin
-build/kernel.bin
-build/stage1.bin
-build/stage2.bin
-test_minimal
-
-# JIT build directory
-bin/
-test_modules_userspace
-fluid.img
-build/cpu_profile.json
+# Auto-generated files
 kernel/auto_cpu_flags.mk
-cache/
-tinyllama/tinyllama.img
-tinyllama/*.img
+auto_cpu_flags.mk
+
+# Profile data
+*.json
+!profile_results.json
+
+# Temporary files
+*.tmp
+*.bak
+*.log

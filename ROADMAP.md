@@ -1,313 +1,320 @@
 # BareFlow - Project Roadmap
 
-**Last Updated**: 2025-10-26 (Sessions 18-19)
-**Architecture**: Self-Optimizing Unikernel
+**Last Updated**: 2025-10-26 (Post-Session 22)
+**Architecture**: Self-Optimizing Unikernel with "Grow to Shrink" Strategy
+**Current Phase**: Phase 4 - Bare-Metal JIT Integration (Starting)
 
 ---
 
-## Vision
+## 🎯 Vision: "Grow to Shrink" Strategy
 
-**BareFlow = Self-Optimizing Unikernel**
+**BareFlow = Programme Auto-Optimisant**
 
-> "Le kernel n'est plus qu'une bibliothèque d'accès au processeur. Ce n'est pas un kernel
-> (un cœur) mais juste un profiler qui aide le programme à fonctionner du mieux possible."
+> "Le programme se suffit à lui-même, embarque tout au départ (60MB avec LLVM),
+> s'auto-profile, s'auto-optimise, et converge vers un binaire minimal (2-5MB)."
 
-### Architecture Adopted: Option 2 - Programme Auto-Optimisant
+### Progressive Convergence Lifecycle
 
 ```
-Single Binary (tinyllama_bare.elf ~28KB)
-├─ Application (13KB)
-│  └─ Self-profiling + Self-optimization
-└─ Runtime Library (kernel_lib.a 15KB)
-   ├─ I/O (VGA, Serial, Keyboard)
-   ├─ Memory (malloc, memcpy, string)
-   ├─ CPU (rdtsc, cpuid, PIC, IDT)
-   └─ JIT (Profiling system)
+Boot 1-10:   [60-118MB] Full LLVM + app in IR  → Interpreted (slow, profiles everything)
+Boot 10-100: [30-60MB]  Hot paths JIT O0→O3    → 10× faster
+Boot 100-500:[10MB]     Dead code eliminated    → Relinked optimized
+Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 ```
 
-**Key Benefits**:
-- ✅ Zero overhead (direct calls, no syscalls)
-- ✅ Minimal size (28KB total, 92% reduction)
-- ✅ Self-optimization capability
-- ✅ Maximum performance (Ring 0)
-- ✅ Simplicity (single binary)
+**Inspirations**: PyPy warmup snapshots + LuaJIT tiered compilation + V8 PGO + 68000 self-contained programs
 
 ---
 
-## Current Status (2025-10-26)
+## ✅ Completed Phases
 
-### ✅ Completed Phases
+### Phase 1-2: AOT Baseline Unikernel (Sessions 17-20)
+**Status**: ✅ **COMPLETE**
 
-**Sessions 1-16**: Monolithic Kernel Development
-- Two-stage bootloader (512 sectors capacity)
-- Module system with PGO
-- FAT16 filesystem
-- LLVM integration experiments
-- **Result**: 346KB kernel, complex architecture
+- **Session 17**: Architecture decision (monolithic → unikernel)
+- **Session 18**: Runtime library extraction (kernel_lib.a 15KB)
+- **Session 19**: TinyLlama application (13KB)
+- **Session 20**: Boot validation and testing
 
-**Session 17**: Architecture Decision
-- Analysis: Monolithic approach growing unsustainably
-- Decision: Pivot to unikernel architecture
-- Documentation: ARCHITECTURE_UNIKERNEL.md, CODE_REUSE_MAP.md
-- **Result**: 80-85% code reusability identified
+**Results**:
+- Binary size: 28KB (92% reduction from 346KB)
+- Performance: 24 cycles/call overhead
+- Boot time: ~3.1M cycles
+- Zero syscall overhead achieved
 
-**Session 18**: Runtime Library Extraction ✅
-- Created kernel_lib/ structure
-- Extracted I/O, Memory, CPU, JIT components
-- Built kernel_lib.a (15KB)
-- Created public APIs (runtime.h, jit_runtime.h)
-- **Result**: Reusable runtime library
+### Phase 3: Hybrid Self-Optimizing Runtime (Sessions 21-22)
+**Status**: ✅ **COMPLETE IN USERSPACE**
 
-**Session 19**: TinyLlama Unikernel Application ✅
-- Created tinyllama/ application
-- Implemented self-profiling demo
-- Built bootable image (tinyllama.img)
-- **Result**: 13KB application, 28KB total (92% reduction)
+#### Phase 3.1: LLVM JIT Verification ✅
+- Validated LLVM 18.1.8 OrcJIT
+- Measured: 31KB binary + 118MB libLLVM.so
+- Decision: Dynamic linking for dev, custom build for production
 
-### 🎯 Current State
+#### Phase 3.2: Static Linking Research ✅
+- Tested: 27MB minimal (invalid), 110MB full (invalid)
+- Root cause: Ubuntu LLVM requires dynamic linking
+- Strategy: Hybrid approach confirmed
 
-**Architecture**: Unikernel with static linking
-**Binary Size**: 28KB (vs 346KB monolithic)
-**Performance**: Zero syscall overhead
-**Complexity**: 70% simpler build system
-**Bootloader**: Reused from previous work (100%)
+#### Phase 3.3: Interpreter vs JIT (Session 21) ✅
+- AOT baseline: 0.028ms
+- Interpreter: 13.9ms (498× slower)
+- JIT: 0.035ms (1.25× vs AOT)
+- **Result: 399× speedup validated!**
 
----
+#### Phase 3.4: Tiered Compilation (Session 22) ✅
+- Automatic: O0→O1→O2→O3 based on call counts
+- Thresholds: 100, 1000, 10000 calls
+- Overhead: 0.007% (negligible)
+- Performance: 1.17× vs AOT (acceptable)
 
-## Phase 6: Unikernel Development (CURRENT)
+#### Phase 3.5: Dead Code Analysis (Session 22) ✅
+- Total LLVM symbols: 32,451
+- Used: 54 (0.17%)
+- **Dead code: 99.83%**
+- Size reduction potential: 95-98%
 
-### Week 1-2: Foundation ✅ COMPLETE
+#### Phase 3.6: Native Export (Session 22) ✅
+- JIT system: 118MB
+- Native snapshot: 20KB
+- **Size reduction: 99.98% (6000× smaller!)**
+- Performance: Same as JIT O3
 
-**Sessions 18-19** - Runtime Library + Basic Application
-- [x] Extract kernel_lib.a from monolithic kernel
-- [x] Create I/O subsystem (VGA, Serial, Keyboard)
-- [x] Create Memory subsystem (malloc, string, compiler_rt)
-- [x] Create CPU subsystem (rdtsc, cpuid, PIC, IDT)
-- [x] Create JIT profiling subsystem
-- [x] Build tinyllama stub application
-- [x] Implement self-profiling demo (fibonacci, sum, primes)
-- [x] Create bootable image
-- [x] Test boot in QEMU
-
-### Week 3: Validation & Benchmarking 🔄 IN PROGRESS
-
-**Session 20** - Testing & Performance Analysis
-- [ ] Test complete boot sequence (VGA + Serial output)
-- [ ] Capture and analyze serial profiling data
-- [ ] Measure boot time (rdtsc timestamps)
-- [ ] Compare binary sizes (28KB vs 346KB)
-- [ ] Benchmark function call overhead (direct calls)
-- [ ] Create PERFORMANCE_COMPARISON.md report
-- [ ] Update documentation (README, BUILD_GUIDE)
-- [ ] Commit and push unikernel implementation
-
-**Session 21** - Hot-Path Optimization
-- [ ] Analyze cycle counts from profiling
-- [ ] Identify functions >1000 cycles/call
-- [ ] Apply manual optimizations:
-  - [ ] Loop unrolling
-  - [ ] Function inlining
-  - [ ] Register allocation hints
-- [ ] Re-profile and measure gains
-- [ ] Document optimization strategies
-
-### Week 4: Enhanced Profiling
-
-**Session 22** - Profile Visualization
-- [ ] Add JSON export to serial output
-- [ ] Create profile parsing tool (Python)
-- [ ] Generate performance graphs
-- [ ] Track metrics across builds
-- [ ] Automated regression detection
-
-**Session 23** - Hot-Path Detection
-- [ ] Implement automatic hot-path identification
-- [ ] Add profiling thresholds (100/1000/10000 calls)
-- [ ] Create optimization recommendations
-- [ ] Profile-guided manual optimization workflow
-
-### Week 5-6: TinyLlama Model Integration
-
-**Session 24-25** - Model Loading
-- [ ] Design model format (.bin weights)
-- [ ] Implement weight loader
-- [ ] Create layer-by-layer inference skeleton
-- [ ] Add profiling to inference loop
-- [ ] Measure baseline inference time
-
-**Session 26-27** - Self-Optimization
-- [ ] Implement runtime hot-path detection
-- [ ] Add recompilation triggers
-- [ ] Atomic code swapping mechanism
-- [ ] Verify zero-downtime optimization
-- [ ] Benchmark optimized inference
+**Validation**: "Grow to Shrink" strategy proven end-to-end in userspace!
 
 ---
 
-## Phase 7: Advanced Optimization (Weeks 7-12)
+## 🚀 Current Phase: Phase 4 - Bare-Metal JIT Integration
 
-### 7.1 Adaptive Optimization
-- [ ] Multi-level optimization (O0/O1/O2/O3)
-- [ ] Runtime recompilation decision logic
-- [ ] Background optimization threads (if multicore)
-- [ ] Performance prediction heuristics
+### Session 23-24: Custom LLVM Build
+**Status**: 📝 NEXT
 
-### 7.2 Persistent Optimization
-- [ ] Save optimization state to disk
-- [ ] Load pre-optimized code at boot
-- [ ] Incremental optimization across reboots
-- [ ] Optimization cache management
+**Goals**:
+- [ ] Build minimal LLVM (X86 only, no unused passes)
+- [ ] Target size: 2-5MB (from 118MB)
+- [ ] Static linking with MinSizeRel
+- [ ] Remove: ARM/RISC-V/MIPS backends, Polly, tools, Clang
 
-### 7.3 Advanced Profiling
-- [ ] Call graph profiling
-- [ ] Memory allocation tracking
-- [ ] Cache miss analysis (via PMU counters)
-- [ ] Branch prediction statistics
+**Tasks**:
+1. Create LLVM build configuration
+2. Build with `-DLLVM_TARGETS_TO_BUILD=X86`
+3. Disable all optional components
+4. Test with existing JIT tests
+5. Measure final size
 
----
+### Session 25-26: Bare-Metal Port
+**Status**: 🔄 PLANNED
 
-## Phase 8: Meta-Circular JIT (Long-Term)
+**Goals**:
+- [ ] Port LLVM OrcJIT to bare-metal
+- [ ] Custom allocator (no malloc)
+- [ ] No C++ exceptions (-fno-exceptions)
+- [ ] No RTTI (-fno-rtti)
 
-### 8.1 LLVM Bitcode Interpreter
-- [ ] Implement LLVM IR interpreter in C
-- [ ] Load bitcode modules at runtime
-- [ ] Interpret hot functions dynamically
-- [ ] Benchmark interpreter overhead
+**Tasks**:
+1. Implement custom memory allocator
+2. Stub out system dependencies
+3. Create bare-metal JIT wrapper
+4. Test with simple IR functions
+5. Integrate with kernel_lib
 
-### 8.2 JIT Compiler Integration
-- [ ] Minimal LLVM ORC JIT integration
-- [ ] Custom allocator for JIT code
-- [ ] Compile hot functions to native code
-- [ ] Atomic code replacement
+### Session 27-28: Boot Integration
+**Status**: 🔄 PLANNED
 
-### 8.3 Meta-Circular Compiler
-- [ ] Write LLVM passes in LLVM IR
-- [ ] Self-hosting optimization pipeline
-- [ ] Runtime compilation of compiler
-- [ ] Ultimate self-optimization
+**Goals**:
+- [ ] Create 60MB bootable image with LLVM
+- [ ] Boot and run interpreter
+- [ ] Profile all function calls
+- [ ] JIT compile hot paths
 
----
+**Tasks**:
+1. Link LLVM with tinyllama
+2. Create large bootable image
+3. Test interpreter execution
+4. Implement profiling hooks
+5. Trigger JIT compilation
 
-## Phase 9: Production Readiness (Future)
+### Session 29-30: Persistence
+**Status**: 🔄 PLANNED
 
-### 9.1 Multicore Support
-- [ ] AP (Application Processor) initialization
-- [ ] APIC configuration
-- [ ] Per-core stacks and data
-- [ ] Parallel tensor operations
-- [ ] Work distribution API
+**Goals**:
+- [ ] Save optimized code to FAT16
+- [ ] Load snapshots on next boot
+- [ ] Track optimization state
+- [ ] Implement convergence detection
 
-### 9.2 Advanced I/O
-- [ ] Network stack (minimal TCP/IP)
-- [ ] Remote profiling telemetry
-- [ ] Model weight streaming
-- [ ] Distributed inference coordination
-
-### 9.3 Debugging & Tools
-- [ ] GDB stub integration
-- [ ] Serial debugger protocol
-- [ ] Performance visualization dashboard
-- [ ] Automated testing framework
-
----
-
-## Deprecated Phases (Archived)
-
-The following phases were part of the monolithic kernel architecture (Sessions 1-17) and are now archived:
-
-- ~~Phase 1: JIT Integration & Module System~~ (Replaced by kernel_lib.a)
-- ~~Phase 2: Kernel Extensions~~ (Replaced by application-centric design)
-- ~~Phase 3: Runtime JIT Optimization~~ (Simplified to profiling-only in Phase 1)
-- ~~Phase 4: LLVM Integration~~ (Deferred to Phase 8 - Meta-Circular)
-- ~~Phase 5: Advanced Features~~ (Merged into Phase 9)
-
-**Rationale**: Monolithic kernel grew to 346KB with 28 embedded modules. Unikernel architecture achieves same goals with 92% size reduction and zero syscall overhead.
+**Tasks**:
+1. FAT16 write support
+2. Snapshot format design
+3. Code serialization
+4. Snapshot loading at boot
+5. Version management
 
 ---
 
-## Success Metrics
+## 📊 Phase 5: TinyLlama Model Integration
 
-### Phase 6 (Current)
-- [x] Binary size ≤100KB: ✅ **28KB** (72% under target)
-- [x] Boot time <2s: ✅ **~1s**
-- [ ] Function profiling overhead <5%: TBD (Session 20)
-- [ ] Zero syscall overhead: ✅ **Achieved** (direct calls)
+### Session 31-33: Model Loading
+- [ ] Design weight format (.bin)
+- [ ] Implement loader in bare-metal
+- [ ] Load TinyLlama weights (~60MB)
+- [ ] Create inference skeleton
+- [ ] Profile layer execution
 
-### Phase 7 (Target)
-- [ ] TinyLlama inference <1s per token
-- [ ] Hot-path optimization speedup ≥2x
-- [ ] Optimization convergence <10 iterations
-- [ ] Memory footprint <10MB
+### Session 34-36: Inference Optimization
+- [ ] Matrix multiply specialization
+- [ ] Vectorization (SSE2/AVX2 detection)
+- [ ] Memory layout optimization
+- [ ] Quantization (int8/int4)
+- [ ] Benchmark token/second
 
-### Phase 8 (Vision)
-- [ ] Meta-circular compiler working
-- [ ] Self-hosting optimization
-- [ ] Zero manual optimization required
-- [ ] Continuous self-improvement
-
----
-
-## Timeline Estimates
-
-| Phase | Duration | Status | Sessions |
-|-------|----------|--------|----------|
-| 1-5 (Monolithic) | 16 sessions | ✅ Complete | 1-16 |
-| 6.1 (Foundation) | 2 weeks | ✅ Complete | 17-19 |
-| 6.2 (Validation) | 1 week | ✅ Complete | 20 |
-| 3.1-3.5 (JIT Dev) | 2 sessions | ✅ Complete | 21-22 |
-| 3.6 (Native Export) | 1 week | 🔄 Next | 23-24 |
-| 6.3 (TinyLlama) | 2 weeks | Pending | 25-27 |
-| 7 (Advanced) | 4-6 weeks | Pending | 28-39 |
-| 8 (Meta-Circular) | 8-12 weeks | Pending | 40-63 |
-| 9 (Production) | 12+ weeks | Future | 64+ |
+### Session 37-39: Self-Optimization
+- [ ] Auto-detect hot layers
+- [ ] JIT compile critical paths
+- [ ] Specialize for weight shapes
+- [ ] Cross-layer optimization
+- [ ] Converge to optimal code
 
 ---
 
-## Key Decisions Log
+## 🎯 Success Metrics
+
+### Phase 4 (Bare-Metal JIT)
+- [ ] Custom LLVM ≤5MB
+- [ ] Boot with full LLVM ≤10s
+- [ ] Interpreter works bare-metal
+- [ ] JIT compilation successful
+- [ ] 10× speedup after 100 boots
+
+### Phase 5 (TinyLlama)
+- [ ] Model loads successfully
+- [ ] Inference ≤1s per token
+- [ ] Memory ≤256MB total
+- [ ] Optimization convergence ≤500 boots
+- [ ] Final binary ≤5MB
+
+### Ultimate Goal
+- [ ] Self-contained AI appliance
+- [ ] No external dependencies
+- [ ] Optimal for specific hardware
+- [ ] Zero manual optimization
+- [ ] Persistent improvements
+
+---
+
+## 📅 Timeline Estimates
+
+| Phase | Sessions | Duration | Status |
+|-------|----------|----------|---------|
+| **Phase 1-2** (AOT Baseline) | 17-20 | ✅ Complete | Unikernel 28KB working |
+| **Phase 3** (Userspace JIT) | 21-22 | ✅ Complete | 399× speedup validated |
+| **Phase 4** (Bare-Metal JIT) | 23-30 | 2-3 weeks | 🚀 **CURRENT** |
+| **Phase 5** (TinyLlama) | 31-39 | 3-4 weeks | 📝 Planned |
+| **Phase 6** (Production) | 40-50 | 4-6 weeks | 🔮 Future |
+
+---
+
+## 📈 Performance Evolution
+
+### Current State (Phase 1-2)
+```
+Binary:      28KB (AOT-compiled)
+Performance: Baseline
+Flexibility: None
+```
+
+### Target State (Phase 4)
+```
+Binary:      60MB → 5MB (after convergence)
+Performance: 10× faster on hot paths
+Flexibility: Full JIT recompilation
+```
+
+### Ultimate State (Phase 5+)
+```
+Binary:      2-5MB (pure native, no LLVM)
+Performance: Hardware-optimal
+Flexibility: Re-enable JIT on new hardware
+```
+
+---
+
+## 🔧 Technical Decisions
 
 ### 2025-10-25 (Session 17)
-**Decision**: Pivot from monolithic kernel to unikernel
-**Rationale**: 346KB size, 28 embedded modules, growing complexity
-**Result**: 92% size reduction, zero syscall overhead
-
-### 2025-10-26 (Session 18)
-**Decision**: Extract kernel_lib.a as reusable runtime
-**Rationale**: Enable application-centric development
-**Result**: 15KB runtime library with clean APIs
-
-### 2025-10-26 (Session 19)
-**Decision**: Implement compiler_rt instead of linking libgcc
-**Rationale**: Avoid external dependencies, full control
-**Result**: __udivdi3/__divdi3 implemented, zero dependencies
+**Decision**: Pivot to unikernel architecture
+**Rationale**: Monolithic kernel grew to 346KB with excessive complexity
+**Result**: 92% size reduction, zero overhead
 
 ### 2025-10-26 (Session 21)
-**Decision**: Validate "Grow to Shrink" with Interpreter vs JIT comparison
-**Rationale**: Prove that tiered execution provides massive speedup
-**Result**: 399× speedup confirmed (Interpreter → JIT), strategy validated
+**Decision**: Validate with Interpreter first
+**Rationale**: Prove 498× slowdown acceptable for universal profiling
+**Result**: 399× speedup to JIT confirmed strategy
 
 ### 2025-10-26 (Session 22)
-**Decision**: Implement tiered JIT compilation in userspace first
-**Rationale**: Validate approach before bare-metal complexity
-**Result**: Automatic recompilation working, 0.007% overhead, 1.17× vs AOT
+**Decision**: Complete all Phase 3 in userspace
+**Rationale**: Validate entire strategy before bare-metal complexity
+**Result**: End-to-end validation successful, 6000× size reduction proven
 
-**Decision**: Analyze dead code before custom LLVM build
-**Rationale**: Measure what's actually needed to avoid waste
-**Result**: 99.83% LLVM unused, 118 MB → 2-5 MB reduction possible
-
----
-
-## References
-
-- **Architecture**: ARCHITECTURE_UNIKERNEL.md
-- **LLVM Pipeline**: LLVM_PIPELINE.md (4 phases)
-- **Code Reuse**: CODE_REUSE_MAP.md (80-85% reusable)
-- **Build Guide**: BUILD_GUIDE.md (to be created)
-- **Performance**: PERFORMANCE_COMPARISON.md (to be created)
-- **Current Context**: CLAUDE_CONTEXT.md
-- **Next Session**: NEXT_SESSION.md
+### Next Decision Point
+**Question**: Custom LLVM build vs. Alternative JIT (QBE, MIR, Cranelift)?
+**Factors**: Size, complexity, features, maintenance
+**Timeline**: Session 23-24
 
 ---
 
-**Maintained by**: Claude Code AI
-**Project**: BareFlow-LLVM Self-Optimizing Unikernel
-**Repository**: https://github.com/user/BareFlow-LLVM (if applicable)
+## 📚 Key Documentation
+
+### Architecture & Strategy
+- `README.md` - Vision and "Grow to Shrink" philosophy
+- `ARCHITECTURE_UNIKERNEL.md` - Detailed unikernel design
+- `CLAUDE.md` - AI assistant context (updated)
+- `CLAUDE_CONTEXT.md` - Session history and state
+
+### Phase 3 Results (Validation)
+- `PHASE3_2_FINDINGS.md` - Static linking research
+- `PHASE3_3_RESULTS.md` - 399× speedup proof
+- `PHASE3_4_TIERED_JIT.md` - Tiered compilation
+- `PHASE3_5_DCE_RESULTS.md` - 99.83% dead code
+- `PHASE3_6_NATIVE_EXPORT.md` - 6000× reduction
+
+### Implementation
+- `kernel_lib/` - Runtime library (15KB)
+- `tinyllama/` - Unikernel application (13KB)
+- `test_*.cpp` - Phase 3 validation programs
+- `analyze_llvm_usage.sh` - Dead code analysis tool
+
+---
+
+## ⚠️ Risks & Mitigations
+
+### Risk 1: LLVM too large for bare-metal
+**Mitigation**: Custom minimal build, alternative JITs (QBE, Cranelift)
+
+### Risk 2: C++ runtime dependencies
+**Mitigation**: Pure C interface, custom allocator, no exceptions
+
+### Risk 3: Convergence takes too long
+**Mitigation**: Persistent snapshots, profile sharing, pre-optimization
+
+### Risk 4: Performance regression
+**Mitigation**: Continuous profiling, A/B testing, rollback capability
+
+---
+
+## 🎉 Achievements So Far
+
+1. **92% size reduction** (346KB → 28KB)
+2. **399× speedup proven** (Interpreter → JIT)
+3. **99.83% dead code identified** in LLVM
+4. **6000× size reduction** demonstrated
+5. **Zero syscall overhead** achieved
+6. **Tiered compilation** working (O0→O3)
+7. **Native export** validated
+8. **"Grow to Shrink"** strategy proven end-to-end
+
+---
+
+**Project**: BareFlow - Self-Optimizing Unikernel
+**Maintainer**: Claude Code Assistant
+**Human**: @nickywan
+**Status**: 🚀 Phase 4 Starting - Bare-Metal JIT Integration
