@@ -99,6 +99,26 @@ struct FunctionProfile {
 };
 
 // ============================================================================
+// Test 0: AOT Native (baseline - compiled with clang -O2)
+// ============================================================================
+
+// Native C++ fibonacci for comparison
+int fibonacci_native(int n) {
+    if (n <= 1) return n;
+    return fibonacci_native(n - 1) + fibonacci_native(n - 2);
+}
+
+int testAOT(int n, FunctionProfile& profile) {
+    auto start = std::chrono::high_resolution_clock::now();
+    int result = fibonacci_native(n);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+
+    profile.recordCall(duration);
+    return result;
+}
+
+// ============================================================================
 // Test 1: LLVM Interpreter (interpreted execution)
 // ============================================================================
 
@@ -197,7 +217,7 @@ int testJIT(int n, FunctionProfile& profile) {
 // ============================================================================
 
 int main() {
-    std::cout << "=== LLVM Interpreter vs JIT Comparison ===\n\n";
+    std::cout << "=== AOT vs Interpreter vs JIT Comparison ===\n\n";
 
     // Initialize LLVM
     InitializeNativeTarget();
@@ -207,17 +227,28 @@ int main() {
     const int N = 20;  // fibonacci(20) = 6765
     const int ITERATIONS = 10;
 
+    FunctionProfile aotProfile;
     FunctionProfile interpreterProfile;
     FunctionProfile jitProfile;
 
+    aotProfile.name = "AOT (clang -O2)";
     interpreterProfile.name = "Interpreter";
     jitProfile.name = "JIT";
 
     std::cout << "Computing fibonacci(" << N << ") = expected 6765\n";
     std::cout << "Running " << ITERATIONS << " iterations each...\n\n";
 
+    // Test AOT (native)
+    std::cout << "[1/3] Testing AOT Native (baseline, clang -O2)...\n";
+    int aotResult = 0;
+    for (int i = 0; i < ITERATIONS; i++) {
+        aotResult = testAOT(N, aotProfile);
+        std::cout << "  Iteration " << (i+1) << "/" << ITERATIONS
+                  << ": fib(" << N << ") = " << aotResult << "\n";
+    }
+
     // Test Interpreter
-    std::cout << "[1/2] Testing LLVM Interpreter (interpreted execution)...\n";
+    std::cout << "\n[2/3] Testing LLVM Interpreter (interpreted execution)...\n";
     int interpreterResult = 0;
     for (int i = 0; i < ITERATIONS; i++) {
         interpreterResult = testInterpreter(N, interpreterProfile);
@@ -226,7 +257,7 @@ int main() {
     }
 
     // Test JIT
-    std::cout << "\n[2/2] Testing LLVM JIT (compiled execution)...\n";
+    std::cout << "\n[3/3] Testing LLVM JIT (compiled execution)...\n";
     int jitResult = 0;
     for (int i = 0; i < ITERATIONS; i++) {
         jitResult = testJIT(N, jitProfile);
@@ -237,7 +268,13 @@ int main() {
     // Results
     std::cout << "\n=== Results ===\n\n";
 
-    std::cout << "Interpreter:\n";
+    std::cout << "AOT (clang -O2 baseline):\n";
+    std::cout << "  Result: " << aotResult << "\n";
+    std::cout << "  Calls: " << aotProfile.call_count << "\n";
+    std::cout << "  Avg time: " << aotProfile.getAvgTimeMs() << " ms\n";
+    std::cout << "  Total time: " << (aotProfile.total_time_ns / 1000000.0) << " ms\n";
+
+    std::cout << "\nInterpreter:\n";
     std::cout << "  Result: " << interpreterResult << "\n";
     std::cout << "  Calls: " << interpreterProfile.call_count << "\n";
     std::cout << "  Avg time: " << interpreterProfile.getAvgTimeMs() << " ms\n";
@@ -249,18 +286,28 @@ int main() {
     std::cout << "  Avg time: " << jitProfile.getAvgTimeMs() << " ms\n";
     std::cout << "  Total time: " << (jitProfile.total_time_ns / 1000000.0) << " ms\n";
 
-    // Speedup
-    double speedup = interpreterProfile.getAvgTimeMs() / jitProfile.getAvgTimeMs();
-    std::cout << "\n=== Performance ===\n";
-    std::cout << "JIT is " << speedup << "× faster than Interpreter\n";
+    // Speedup comparisons
+    double interpreter_vs_aot = interpreterProfile.getAvgTimeMs() / aotProfile.getAvgTimeMs();
+    double jit_vs_interpreter = interpreterProfile.getAvgTimeMs() / jitProfile.getAvgTimeMs();
+    double jit_vs_aot = jitProfile.getAvgTimeMs() / aotProfile.getAvgTimeMs();
+
+    std::cout << "\n=== Performance Comparison ===\n";
+    std::cout << "Interpreter is " << interpreter_vs_aot << "× slower than AOT\n";
+    std::cout << "JIT is " << jit_vs_interpreter << "× faster than Interpreter\n";
+    std::cout << "JIT vs AOT: " << (jit_vs_aot < 1.0 ? (1.0/jit_vs_aot) : jit_vs_aot) << "× ";
+    std::cout << (jit_vs_aot < 1.0 ? "faster" : "slower") << " than AOT\n";
 
     // Validation
-    bool success = (interpreterResult == jitResult) && (interpreterResult == 6765);
+    bool success = (aotResult == interpreterResult) &&
+                   (interpreterResult == jitResult) &&
+                   (aotResult == 6765);
     if (success) {
-        std::cout << "\n✓ SUCCESS: Both modes produced correct result (6765)\n";
+        std::cout << "\n✓ SUCCESS: All modes produced correct result (6765)\n";
         return 0;
     } else {
         std::cout << "\n✗ FAILED: Results don't match or incorrect\n";
+        std::cout << "  AOT: " << aotResult << ", Interpreter: " << interpreterResult
+                  << ", JIT: " << jitResult << "\n";
         return 1;
     }
 }
