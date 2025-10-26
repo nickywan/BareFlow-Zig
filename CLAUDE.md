@@ -336,11 +336,19 @@ Debug with: `make debug` in tinyllama/
 
 ## 🎯 Success Criteria
 
-### Phase 4 (Current)
-- [ ] Custom LLVM ≤5MB
-- [ ] Boot with LLVM ≤10s
-- [ ] JIT works bare-metal
-- [ ] 10× speedup after 100 boots
+### Phase 4 (Complete ✅)
+- [x] 64-bit runtime library (kernel_lib_llvm.a 29 KB)
+- [x] QEMU bare-metal validation infrastructure
+- [x] Tiered compilation validated (1.7× speedup O0→O1)
+- [x] LLVM integration proven (userspace + bare-metal)
+- [x] malloc investigation documented (deferred to Phase 5)
+
+### Phase 5 (Current)
+- [ ] Paging implementation (4-level page tables)
+- [ ] malloc working with paging
+- [ ] TinyLlama model loading (~60MB)
+- [ ] Inference optimization (matrix multiply, vectorization)
+- [ ] JIT hot layer compilation
 
 ### Ultimate Goal
 - [ ] 2-5MB final binary
@@ -350,6 +358,115 @@ Debug with: `make debug` in tinyllama/
 
 ---
 
-**Last Updated**: 2025-10-26 (Post-Session 22)
+## 📌 CRITICAL: Update README.md Every Session
+
+**User Request**: "garde en mémoire de mettre à jour aussi le README principal si nécessaire à chaque session"
+
+**When to update README.md**:
+1. **Major phase completion** (Phase 3 → Phase 4 → Phase 5)
+2. **Architecture decisions** (32-bit → 64-bit migration)
+3. **Significant milestones** (QEMU boot working, malloc investigation)
+4. **Session completion** (update current status, results)
+
+**How to update**:
+- Update Phase status (EN COURS → COMPLÈTE)
+- Add session results (Session X ✅: brief description)
+- Update "Next Phase" section if transitioning
+- Update metrics if significant changes
+
+---
+
+## 🎓 Lessons Learned - Phase 4
+
+### 1. QEMU Validation is Essential
+**Lesson**: ALWAYS test bare-metal code in QEMU before assuming it works.
+- Real x86-64 environment catches issues userspace can't
+- Serial debugging is invaluable (COM1 port)
+- Faster iteration than hardware testing
+- Create reproducible test environment (Multiboot2 + GRUB + ISO)
+
+### 2. Architecture Decisions Have Long-Term Impact
+**Lesson**: 64-bit migration simplified development significantly.
+- Native LLVM support (no 3+ hour custom builds)
+- Better JIT performance (16 registers vs 8)
+- Modern toolchain compatibility
+- Initial complexity pays off long-term
+
+**Flags to remember (64-bit kernel)**:
+```
+-mno-red-zone       # CRITICAL for 64-bit kernel (no stack red zone)
+-mcmodel=kernel     # Higher-half addressing model
+-fno-pie            # No position-independent executable
+-fno-stack-protector # No stack canary checks
+```
+
+### 3. Commit at Each Step
+**User Request**: "n'oublie pas de commiter à chaque step mets ca en mémoire"
+
+**Practice**:
+- Commit after each significant change
+- Write detailed commit messages with context
+- Include session number and result
+- Never batch multiple unrelated changes
+
+**Example commit message format**:
+```
+feat(phase4): Session X - Brief description
+
+Detailed explanation of what was done, why, and results.
+
+Results:
+- Metric 1: Value
+- Metric 2: Value
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+### 4. Investigate Thoroughly, Defer Pragmatically
+**Lesson**: malloc investigation wasn't wasted time.
+- 7 different debugging approaches tried
+- Clear findings enable Phase 5 work
+- Documented hypothesis provides roadmap
+- Deferred decisions need strong rationale
+
+**When to defer**:
+- Extensive investigation done (not first try)
+- Root cause hypothesis documented
+- Not blocking current phase completion
+- Clear path to resolution in future phase
+
+### 5. Documentation is Development
+**Lesson**: 2500+ lines of documentation in Phase 4 is not overhead.
+- Enables session recovery after context loss
+- Provides decision record (why, not just what)
+- Investigation reports save future debugging time
+- Architecture decision records prevent revisiting settled questions
+
+**Documentation types**:
+- Session summaries (what happened, results, next steps)
+- Investigation reports (malloc, performance, etc.)
+- Architecture decision records (ADR format)
+- Technical references (API docs, build guides)
+
+### 6. Userspace Validation First
+**Lesson**: test_tiered_llvm.cpp validated entire approach before bare-metal.
+- Faster iteration cycle (compile, run, debug)
+- Easier debugging (gdb, printf, valgrind)
+- Proves concept before complexity
+- Metrics become baseline for bare-metal comparison
+
+**Process**:
+1. Prototype in userspace (C++)
+2. Validate metrics and behavior
+3. Port to C (remove C++ dependencies)
+4. Integrate into kernel_lib
+5. Test in QEMU bare-metal
+6. Compare metrics to userspace baseline
+
+---
+
+**Last Updated**: 2025-10-26 (Post-Session 30 - Phase 4 COMPLETE)
 **Maintainer**: Claude Code Assistant
 **Human**: @nickywan

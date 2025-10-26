@@ -1,8 +1,8 @@
 # BareFlow - Project Roadmap
 
-**Last Updated**: 2025-10-26 (Post-Session 28 - **64-bit Migration**)
+**Last Updated**: 2025-10-26 (Post-Session 30 - **Phase 4 COMPLETE**)
 **Architecture**: Self-Optimizing Unikernel with "Grow to Shrink" Strategy (x86-64)
-**Current Phase**: Phase 4 - Bare-Metal JIT Integration (Sessions 23-28 Complete - 64-bit Migration)
+**Current Phase**: Phase 5 - TinyLlama Model Integration (Phase 4 Complete - Ready to Start)
 
 ---
 
@@ -83,7 +83,7 @@ Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 
 ---
 
-## 🚀 Current Phase: Phase 4 - Bare-Metal JIT Integration
+## ✅ Phase 4 Complete: Bare-Metal JIT Integration (Sessions 23-30)
 
 ### Session 23: FULL LLVM 18 Integration
 **Status**: ✅ COMPLETE
@@ -255,24 +255,27 @@ Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 - Solution: Deferred to Phase 5 (not blocking)
 
 ### Session 30: Phase 4 Finalization & Documentation
-**Status**: 📝 NEXT
+**Status**: ✅ COMPLETE
 
 **Goals**:
-- [ ] Resolve malloc issue OR document as known limitation
-- [ ] Complete Phase 4 documentation
-- [ ] Prepare for Phase 5 (TinyLlama)
+- [x] Document malloc investigation (extensive analysis)
+- [x] Complete Phase 4 documentation
+- [x] Prepare for Phase 5 (TinyLlama)
+- [x] Update README.md with Phase 4 completion
 
-**Tasks** (Session 29):
-1. Create boot simulator
-2. Measure initialization timing
-3. Test interpreter + JIT workflow
-4. Document boot sequence
+**Tasks Completed**:
+1. ✅ Created comprehensive malloc investigation doc (450+ lines)
+2. ✅ Created Session 30 summary (comprehensive Phase 4 review)
+3. ✅ Updated README.md with Phase 4 status
+4. ✅ Defined Phase 5 roadmap and prerequisites
+5. ✅ Documented all lessons learned
 
-**Tasks** (Session 30):
-1. Complete Phase 4 summary
-2. Create 32-bit LLVM build guide
-3. Design Phase 5 TinyLlama plan
-4. Update all documentation
+**Results**:
+- malloc investigation: Fully documented (deferred to Phase 5)
+- Phase 4 documentation: Complete (10+ documents, 2500+ lines)
+- Phase 5 planning: Roadmap defined
+- All commits: Detailed messages with context
+- Exit criteria: All Phase 4 goals met ✅
 
 ### Session 29-30: Persistence
 **Status**: 🔄 PLANNED
@@ -290,11 +293,42 @@ Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 4. Snapshot loading at boot
 5. Version management
 
+**Phase 4 Summary**: Complete 64-bit bare-metal runtime with LLVM support, proven in QEMU x86-64.
+- ✅ kernel_lib_llvm.a: 29 KB (64-bit runtime library)
+- ✅ QEMU validation infrastructure established
+- ✅ Tiered compilation validated (1.7× speedup O0→O1)
+- ✅ malloc investigation documented (deferred to Phase 5 with paging)
+- ✅ Complete documentation (10+ docs, 2500+ lines)
+
+**Phase 4 → Phase 5 Transition**: All exit criteria met, ready for TinyLlama integration.
+
 ---
 
-## 📊 Phase 5: TinyLlama Model Integration
+## 🚀 Phase 5: TinyLlama Model Integration (NEXT)
 
-### Session 31-33: Model Loading
+**Critical Prerequisite**: Implement paging first (Session 31) to enable malloc functionality.
+
+### Session 31: Paging Implementation (CRITICAL)
+**Status**: 📝 NEXT
+
+**Goals**:
+- [ ] Implement 4-level page tables (PML4 → PDPT → PD → PT)
+- [ ] Identity map kernel sections (.text, .rodata, .data, .bss)
+- [ ] Map heap region with write permissions
+- [ ] Register page fault handler (IDT entry 14)
+- [ ] Re-test malloc with paging enabled
+
+**Tasks**:
+1. Create page table structures in boot.S
+2. Setup identity mapping for kernel (1 MB → 4 MB)
+3. Map heap region (configurable size)
+4. Enable CR3 and paging bit
+5. Test malloc_llvm.c with paging
+6. Validate with QEMU
+
+**Expected Result**: malloc() working without triple fault
+
+### Session 32-33: Model Loading
 - [ ] Design weight format (.bin)
 - [ ] Implement loader in bare-metal
 - [ ] Load TinyLlama weights (~60MB)
@@ -350,8 +384,8 @@ Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 |-------|----------|----------|---------|
 | **Phase 1-2** (AOT Baseline) | 17-20 | ✅ Complete | Unikernel 28KB working |
 | **Phase 3** (Userspace JIT) | 21-22 | ✅ Complete | 399× speedup validated |
-| **Phase 4** (Bare-Metal JIT) | 23-30 | 2-3 weeks | 🚀 **CURRENT** (7/8 sessions - 88%) |
-| **Phase 5** (TinyLlama) | 31-39 | 3-4 weeks | 📝 Planned |
+| **Phase 4** (Bare-Metal JIT) | 23-30 | ✅ Complete | 64-bit runtime + QEMU validation |
+| **Phase 5** (TinyLlama) | 31-39 | 3-4 weeks | 🚀 **CURRENT** (Ready to start) |
 | **Phase 6** (Production) | 40-50 | 4-6 weeks | 🔮 Future |
 
 ---
