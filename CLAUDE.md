@@ -224,8 +224,14 @@ See `ROADMAP.md` for detailed task list.
 1. **Userspace First**: Validate concept with test_*.cpp
 2. **Port to C**: Remove C++ dependencies
 3. **Integrate**: Add to kernel_lib
-4. **Boot Test**: Run in QEMU
+4. **QEMU Validation**: ALWAYS test bare-metal code in QEMU
+   - Use `qemu-system-x86_64` for 64-bit kernels
+   - Create bootable ISO with GRUB/Multiboot2
+   - Verify in real x86-64 environment
+   - Serial output for debugging
 5. **Profile**: Measure with rdtsc
+
+**CRITICAL**: NEVER assume bare-metal code works without QEMU testing!
 
 ---
 

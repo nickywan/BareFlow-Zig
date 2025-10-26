@@ -27,6 +27,7 @@ CXXFLAGS = -target x86_64-unknown-none \
            -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
            -fno-exceptions -fno-rtti \
            -fno-stack-protector -mno-red-zone -mcmodel=kernel \
+           -DHEAP_SIZE_SMALL \
            -I../../../kernel_lib
 
 # Linker flags

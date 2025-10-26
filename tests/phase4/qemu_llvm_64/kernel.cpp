@@ -58,10 +58,32 @@ extern "C" void kernel_main() {
     println("  Serial output working!");
 
     println("");
-    println("[Test 2] 64-bit kernel:");
+    println("[Test 2] Memory allocator (1 MB heap):");
+    println("  About to call malloc(1024)...");
+    void* ptr1 = malloc(1024);
+    println("  malloc returned!");
+    if (ptr1) {
+        println("  malloc(1024) -> OK");
+        free(ptr1);
+        println("  free() -> OK");
+    } else {
+        println("  malloc(1024) -> FAIL");
+    }
+
+    void* ptr2 = malloc(1024 * 1024);  // 1 MB
+    if (ptr2) {
+        println("  malloc(1 MB) -> OK");
+        free(ptr2);
+        println("  free(1 MB) -> OK");
+    } else {
+        println("  malloc(1 MB) -> FAIL");
+    }
+
+    println("");
+    println("[Test 3] 64-bit kernel:");
     println("  Running in long mode (x86-64)");
     println("  Multiboot2 boot successful");
-    println("  kernel_lib_llvm.a linked");
+    println("  kernel_lib_llvm.a linked (29 KB)");
 
     println("");
     println("========================================");
