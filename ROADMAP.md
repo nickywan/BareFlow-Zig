@@ -247,9 +247,12 @@ Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 - kernel_lib_llvm: 29 KB (64-bit)
 - QEMU validation practice documented
 
-**Issue Identified**:
-- malloc() triple fault (BSS initialization or paging issue)
-- Solution deferred to Session 30 or Phase 5
+**Issue Identified & Investigated**:
+- malloc() triple fault (extensive debugging performed)
+- BSS manual zeroing implemented (boot.S)
+- Crash point identified: free_list global variable write
+- Likely needs paging setup for 64-bit
+- Solution: Deferred to Phase 5 (not blocking)
 
 ### Session 30: Phase 4 Finalization & Documentation
 **Status**: 📝 NEXT
