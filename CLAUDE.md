@@ -4,6 +4,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## ⚠️ CRITICAL: Project Philosophy - READ FIRST
+
+### 🎯 "Grow to Shrink" - Size is NOT a Constraint!
+
+**NEVER OPTIMIZE FOR INITIAL SIZE! THE SYSTEM MUST BE LARGE AT START!**
+
+```
+"On s'en fiche de la taille initiale!"
+
+Boot 1:     [60-118MB]  FULL LLVM + app IR  → VOULU! Profile TOUT
+            ↓ Auto-profiling universel
+Boot 100:   [30MB]      Hot paths JIT O0→O3
+            ↓ Auto-optimization
+Boot 500:   [10MB]      Dead code éliminé
+            ↓ Convergence progressive
+Boot 1000:  [2-5MB]     Pure native export
+```
+
+### 🚫 NEVER Do This:
+- ❌ Try to minimize LLVM size
+- ❌ Use "minimal builds" or stripped versions
+- ❌ Consider alternatives like QBE, Cranelift
+- ❌ Optimize for boot image size
+- ❌ Remove LLVM features to save space
+
+### ✅ ALWAYS Do This:
+- ✅ Use **FULL LLVM 18** (118MB is FINE!)
+- ✅ Include ALL optimization passes
+- ✅ Keep LLVM Interpreter + OrcJIT
+- ✅ Focus on auto-optimization capability
+- ✅ Size reduction comes FROM convergence, NOT initial constraints
+
+**Why**: The system profiles itself, JIT compiles hot paths, eliminates dead code, and THEN exports to small native binary. Initial size is IRRELEVANT - convergence is everything!
+
+---
+
 ## 📌 Session Recovery Protocol
 
 **IMPORTANT**: When starting a new session, follow this exact sequence:

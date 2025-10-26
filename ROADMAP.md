@@ -85,21 +85,21 @@ Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 
 ## 🚀 Current Phase: Phase 4 - Bare-Metal JIT Integration
 
-### Session 23-24: Custom LLVM Build
+### Session 23-24: FULL LLVM 18 Integration
 **Status**: 📝 NEXT
 
 **Goals**:
-- [ ] Build minimal LLVM (X86 only, no unused passes)
-- [ ] Target size: 2-5MB (from 118MB)
-- [ ] Static linking with MinSizeRel
-- [ ] Remove: ARM/RISC-V/MIPS backends, Polly, tools, Clang
+- [ ] Use COMPLETE LLVM 18 (118MB - this is DESIRED!)
+- [ ] Verify ALL optimization passes available (O0→O3)
+- [ ] Keep Interpreter + OrcJIT + all features
+- [ ] NO size constraints - focus on auto-optimization capability
 
 **Tasks**:
-1. Create LLVM build configuration
-2. Build with `-DLLVM_TARGETS_TO_BUILD=X86`
-3. Disable all optional components
-4. Test with existing JIT tests
-5. Measure final size
+1. ✅ Correct project philosophy documentation
+2. Install/verify FULL LLVM 18
+3. Confirm all optimization passes available
+4. Test with Phase 3 validation suite
+5. Document bare-metal integration requirements
 
 ### Session 25-26: Bare-Metal Port
 **Status**: 🔄 PLANNED
@@ -121,10 +121,10 @@ Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 **Status**: 🔄 PLANNED
 
 **Goals**:
-- [ ] Create 60MB bootable image with LLVM
-- [ ] Boot and run interpreter
-- [ ] Profile all function calls
-- [ ] JIT compile hot paths
+- [ ] Create ~118MB bootable image with FULL LLVM (Boot 1)
+- [ ] Boot and run interpreter on all code
+- [ ] Profile ALL function calls universally
+- [ ] JIT compile hot paths (O0→O3)
 
 **Tasks**:
 1. Link LLVM with tinyllama
@@ -179,11 +179,13 @@ Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 ## 🎯 Success Metrics
 
 ### Phase 4 (Bare-Metal JIT)
-- [ ] Custom LLVM ≤5MB
-- [ ] Boot with full LLVM ≤10s
-- [ ] Interpreter works bare-metal
-- [ ] JIT compilation successful
-- [ ] 10× speedup after 100 boots
+- [ ] FULL LLVM 18 integrated (118MB is OK!)
+- [ ] Boot 1: ~118MB image, profile everything
+- [ ] Interpreter works bare-metal on all code
+- [ ] JIT compilation successful (OrcJIT)
+- [ ] 399× speedup demonstrated (Interpreter → JIT)
+- [ ] Boot 100: Converged to ~30MB
+- [ ] Boot 1000+: Converged to ~2-5MB native
 
 ### Phase 5 (TinyLlama)
 - [ ] Model loads successfully

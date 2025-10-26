@@ -34,49 +34,46 @@ Passer de la validation userspace (Phase 3) à l'implémentation bare-metal comp
 - LLVM JIT intégré dans bare-metal
 - Allocateur custom pour JIT
 - Runtime C++ minimal (no exceptions, no RTTI)
-- Custom LLVM build (2-5MB vs 118MB)
+- FULL LLVM 18 integration (118MB - this is DESIRED!)
 - Persistence des optimisations (FAT16)
 
 ---
 
 ## 📋 Phase 4 - Plan Détaillé
 
-### Session 23-24: Custom LLVM Build (2-3 jours)
+### Session 23-24: LLVM 18 Integration Setup (2-3 jours)
 
-**Objectif**: Réduire LLVM de 118MB à 2-5MB
+**Objectif**: Intégrer FULL LLVM 18 (118MB) pour auto-optimization
 
-**Option A - Custom LLVM Build** (Recommandé)
+**⚠️ CRITICAL**: Use COMPLETE LLVM 18, not minimal build!
+
+**Build Configuration** (Full Features)
 ```bash
-# Configuration minimale
+# Use standard LLVM 18 from package manager
+sudo apt install llvm-18-dev clang-18 llvm-18-tools
+
+# OR build from source with ALL features
 cmake -G Ninja \
-  -DCMAKE_BUILD_TYPE=MinSizeRel \
+  -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_TARGETS_TO_BUILD="X86" \
-  -DLLVM_ENABLE_PROJECTS="" \
-  -DLLVM_INCLUDE_TOOLS=OFF \
-  -DLLVM_BUILD_TOOLS=OFF \
-  -DLLVM_ENABLE_TERMINFO=OFF \
-  -DLLVM_ENABLE_ZLIB=OFF \
-  -DLLVM_ENABLE_LIBXML2=OFF \
+  -DLLVM_ENABLE_PROJECTS="clang" \
+  -DLLVM_ENABLE_RTTI=ON \
   ../llvm
 ```
 
-**Option B - Alternative JIT** (Fallback)
-- **QBE**: Tiny backend (30KB), C99
-- **Cranelift**: Rust-based, ~2MB
-- **MIR**: Minimal IR JIT, ~500KB
-
-**Critères de décision**:
-1. Taille finale (<5MB)
-2. Complexité d'intégration
-3. Performance (doit être proche AOT)
-4. Support bare-metal
+**Why FULL LLVM (118MB)?**
+- ✅ Complete optimization passes (O0→O1→O2→O3)
+- ✅ Interpreter + OrcJIT + all backends
+- ✅ Full profiling and analysis tools
+- ✅ Maximum auto-optimization capability
+- ✅ Size reduction comes FROM convergence, not initial constraints
 
 **Tasks**:
-1. ✅ Rechercher options de build LLVM minimal
-2. ⬜ Tester build avec X86 only
-3. ⬜ Mesurer taille résultante
-4. ⬜ Valider avec tests Phase 3
-5. ⬜ Décision: LLVM custom ou alternative?
+1. ⬜ Install/build FULL LLVM 18 (118MB)
+2. ⬜ Verify all optimization passes available
+3. ⬜ Test with Phase 3 validation suite
+4. ⬜ Confirm Interpreter + OrcJIT working
+5. ⬜ Document bare-metal integration requirements
 
 ---
 
@@ -117,16 +114,16 @@ extern "C" {
 
 ### Session 27-28: Boot Integration (2-3 jours)
 
-**Objectif**: Créer image bootable 60MB avec LLVM
+**Objectif**: Créer image bootable avec FULL LLVM
 
 **Architecture**:
 ```
-tinyllama_jit.img (60MB)
+tinyllama_jit.img (~118MB - Boot 1, this is DESIRED!)
 ├── Stage 1 (512B)
 ├── Stage 2 (4KB)
-└── Kernel + LLVM (~60MB)
+└── Kernel + LLVM (~118MB)
     ├── tinyllama app IR (~100KB)
-    ├── LLVM JIT runtime (~2-5MB)
+    ├── LLVM FULL runtime (~118MB - ALL features!)
     └── kernel_lib (~15KB)
 ```
 
@@ -141,11 +138,11 @@ tinyllama_jit.img (60MB)
 8. JIT compile hot functions
 
 **Tasks**:
-1. ⬜ Modifier bootloader pour 60MB
+1. ⬜ Modifier bootloader pour ~118MB (full LLVM)
 2. ⬜ Créer section .ir dans binary
 3. ⬜ Implémenter IR loader
 4. ⬜ Hook profiling dans interpreter
-5. ⬜ Tester boot + execution
+5. ⬜ Tester boot + execution with FULL LLVM
 
 ---
 
@@ -156,11 +153,12 @@ tinyllama_jit.img (60MB)
 **FAT16 Integration**:
 ```
 /boot/
-  ├── tinyllama_base.img      # Image initiale 60MB
+  ├── tinyllama_base.img      # Image initiale ~118MB (FULL LLVM)
   └── snapshots/
-      ├── boot_001.snapshot   # Après 10 boots
-      ├── boot_100.snapshot   # JIT O0-O3 appliqué
-      └── boot_500.snapshot   # Dead code éliminé
+      ├── boot_001.snapshot   # Après 10 boots (~118MB)
+      ├── boot_100.snapshot   # JIT O0-O3 appliqué (~30MB)
+      └── boot_500.snapshot   # Dead code éliminé (~10MB)
+      └── boot_1000.snapshot  # Native export (~2-5MB)
 ```
 
 **Snapshot format**:
@@ -192,11 +190,11 @@ struct jit_snapshot {
 ## 🎯 Success Criteria Phase 4
 
 ### Minimum Viable Product (MVP)
-- [ ] Custom LLVM build ≤5MB
-- [ ] Boot avec LLVM en bare-metal
-- [ ] Execute simple IR function
-- [ ] JIT compile et execute
-- [ ] Measure speedup vs interpreter
+- [ ] FULL LLVM 18 integration (118MB is OK!)
+- [ ] Boot avec LLVM complet en bare-metal
+- [ ] Execute simple IR function with Interpreter
+- [ ] JIT compile et execute (OrcJIT)
+- [ ] Measure speedup vs interpreter (target 399×)
 
 ### Target Complet
 - [ ] Tiered compilation (O0→O3)
@@ -215,14 +213,14 @@ struct jit_snapshot {
 
 ## 📏 Métriques à Tracker
 
-| Métrique | Target | Comment mesurer |
-|----------|--------|-----------------|
-| **LLVM size** | 2-5MB | `du -sh libLLVM*.a` |
-| **Boot time** | <10s | rdtsc timestamps |
-| **Interpreter perf** | ~500× slower | vs AOT baseline |
-| **JIT compile time** | <100ms | Per function |
-| **JIT perf** | <2× slower AOT | After warmup |
-| **Memory usage** | <128MB | Custom allocator stats |
+| Métrique | Boot 1 | Boot 1000+ | Comment mesurer |
+|----------|--------|------------|-----------------|
+| **Image size** | ~118MB | ~2-5MB | `du -sh tinyllama_jit.img` |
+| **Boot time** | ~10-30s | <1s | rdtsc timestamps |
+| **Interpreter perf** | ~500× slower | N/A | vs AOT baseline |
+| **JIT compile time** | <100ms | <10ms | Per function |
+| **JIT perf** | <2× slower AOT | ~AOT native | After convergence |
+| **Memory usage** | ~200MB | ~32MB | Custom allocator stats |
 
 ---
 
@@ -230,14 +228,21 @@ struct jit_snapshot {
 
 ### Required
 ```bash
-# LLVM source
+# Use pre-built LLVM 18 (recommended)
+sudo apt install llvm-18-dev clang-18 llvm-18-tools
+
+# OR build from source (FULL build, not minimal!)
 git clone https://github.com/llvm/llvm-project.git
 cd llvm-project
 git checkout release/18.x
 
-# Build minimal LLVM
+# Build COMPLETE LLVM with all features
 mkdir build && cd build
-cmake -G Ninja [OPTIONS] ../llvm
+cmake -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DLLVM_TARGETS_TO_BUILD="X86" \
+  -DLLVM_ENABLE_PROJECTS="clang" \
+  ../llvm
 ninja
 ```
 
@@ -265,12 +270,13 @@ make run
 
 ## ⚠️ Risques & Mitigations
 
-### Risque 1: LLVM trop gros même minimal
-**Impact**: Impossible de booter 60MB
+### Risque 1: Bootloader limitations pour 118MB
+**Impact**: Impossible de charger image complète
 **Probabilité**: Moyenne
 **Mitigation**:
-- Try QBE/Cranelift alternatives
-- Split LLVM en modules chargés à la demande
+- Extend bootloader LBA loading (currently limited)
+- Use proper memory mapping (0x100000+ region)
+- Consider multi-stage loading if needed
 
 ### Risque 2: C++ runtime dependencies
 **Impact**: Crashes en bare-metal
@@ -323,16 +329,16 @@ make run
 
 ### Immediate (Session 23)
 1. ✅ Read this kickoff document
-2. ⬜ Research LLVM minimal build options
-3. ⬜ Create build script for custom LLVM
-4. ⬜ Test build and measure size
-5. ⬜ Document findings in `docs/PHASE4_LLVM_BUILD.md`
+2. ✅ Correct project philosophy (NO size optimization!)
+3. ⬜ Verify FULL LLVM 18 installation
+4. ⬜ Test all optimization passes available
+5. ⬜ Create bare-metal integration plan
 
 ### Week 1 (Sessions 23-24)
-- Custom LLVM build working
-- Size ≤5MB validated
-- Tests Phase 3 passing with custom build
-- Decision document created
+- FULL LLVM 18 ready (118MB - this is correct!)
+- All optimization passes validated
+- Tests Phase 3 passing with full LLVM
+- Bare-metal port strategy documented
 
 ### Week 2 (Sessions 25-26)
 - Bare-metal port complete
