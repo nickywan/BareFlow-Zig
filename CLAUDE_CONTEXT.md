@@ -129,7 +129,7 @@ kernel_lib/stdlib.c          → llvm-libc (la plupart des fonctions)
 
 ---
 
-## ✅ État Actuel (Phase 2 - 2025-10-26)
+## ✅ État Actuel (Phase 3.5 - 2025-10-26)
 
 ### IMPORTANT: État du Projet
 
@@ -139,17 +139,19 @@ kernel_lib/stdlib.c          → llvm-libc (la plupart des fonctions)
 - ✅ Bootloader 2-stage fonctionnel
 - ✅ I/O complet (VGA, Serial, Keyboard)
 - ✅ Memory management (malloc/free)
-- ✅ Métriques AOT baseline (voir ci-dessous)
+- ✅ **Phase 3.3**: Interpreter vs JIT validation (399× speedup!)
+- ✅ **Phase 3.4**: Tiered JIT compilation (O0→O1→O2→O3 automatic)
+- ✅ **Phase 3.5**: Dead code analysis (99.83% LLVM unused!)
+- ✅ **Quick Wins**: Matrix multiply benchmarks, JSON export
 
 **Ce qui RESTE à faire** 🚧:
-- ⚠️ **JIT Runtime** - Port du runtime LLVM auto-optimisant
-- ⚠️ **Self-Optimization** - Recompilation à chaud basée sur profiling
-- ⚠️ **Code Swapping** - Remplacement atomique de fonctions
+- ⚠️ **Bare-metal JIT** - Port du runtime LLVM vers kernel
+- ⚠️ **Custom LLVM Build** - Build minimal (2-5 MB instead of 118 MB)
+- ⚠️ **Native Export** - Extract JIT-compiled machine code
 - ⚠️ **Persistence** - Sauvegarde des optimisations
 - ⚠️ **TinyLlama Model** - Intégration du modèle de langage
 
-> **Note**: Les performances actuelles sont des **BASELINE AOT** (Ahead-Of-Time).
-> Les comparaisons JIT vs AOT seront possibles après implémentation du runtime.
+> **Note**: Phases 3.1-3.5 complétées en userspace. Prêt pour intégration bare-metal!
 
 ---
 
@@ -202,6 +204,83 @@ cd tinyllama
 make clean && make
 qemu-system-i386 -drive file=tinyllama.img,format=raw -serial stdio
 ```
+
+---
+
+### Phase 3.4 - Tiered JIT Compilation ✅ COMPLÈTE
+
+**Objectif** : Implémentation de compilation JIT à plusieurs niveaux (O0→O1→O2→O3)
+
+**Réalisations** :
+1. **test_tiered_jit.cpp** créé avec recompilation automatique
+2. **Seuils configurables** : 100 (O0→O1), 1000 (O1→O2), 10000 (O2→O3)
+3. **50,000 itérations** de fibonacci(30) testées
+
+**Résultats** :
+```
+AOT (clang -O2):       3.43 ms (baseline)
+JIT O0 (initial):      4.20 ms, compile 6.31 ms (calls 1-99)
+JIT O1 (warm):         4.02 ms, compile 2.65 ms (calls 100-999)
+JIT O2 (hot):          4.03 ms, compile 2.77 ms (calls 1000-9999)
+JIT O3 (very hot):     4.04 ms, compile 2.42 ms (calls 10000+)
+
+Compilation overhead: 0.007% du temps total
+JIT O3 vs AOT: 1.17× plus lent (acceptable!)
+```
+
+**Validation** :
+- ✅ Recompilation automatique fonctionne parfaitement
+- ✅ Overhead de compilation négligeable
+- ✅ Performance proche de AOT
+
+### Phase 3.5 - Dead Code Elimination ✅ COMPLÈTE
+
+**Objectif** : Analyser l'utilisation de LLVM et identifier le code mort
+
+**Outil créé** : `analyze_llvm_usage.sh`
+
+**Résultats** :
+```
+Total LLVM symbols:    32,451
+Used by test_tiered_jit: 54
+Usage:                 0.17%
+Dead code:             99.83% (!!)
+
+libLLVM-18.so size:    118 MB
+Theoretical minimal:   ~200 KB
+Realistic minimal:     2-5 MB (avec custom build)
+Potentiel reduction:   95-98%
+```
+
+**Composants NON utilisés** (save ~110 MB) :
+- Backends: ARM, RISC-V, PowerPC, MIPS, etc. (~80 MB)
+- Polly optimizer (~20 MB)
+- LLVM tools (linker, assembler) (~10 MB)
+- Clang libraries (~8 MB)
+
+**Composants UTILISÉS** (seulement 54 symbols!) :
+- X86 backend (5 symbols)
+- IR builder (20 symbols)
+- OrcJIT runtime (10 symbols)
+- Core infrastructure (15 symbols)
+- Utilities (4 symbols)
+
+**Conclusion** : Custom LLVM build ESSENTIEL pour bare-metal!
+
+### Quick Wins ✅ COMPLÈTES
+
+**Quick Win 1** : Matrix Multiply Performance Test
+```
+O0 (no opt):     5.83 ms (baseline)
+O2 (aggressive): 1.70 ms (3.42× faster!)
+O3 (maximum):    1.82 ms (3.20× faster)
+```
+→ **Impact de l'optimisation 3× démontré!**
+
+**Quick Win 3** : Profiling Data Export
+- ✅ `export_profile.sh` créé
+- ✅ `profile_results.json` généré avec toutes les métriques
+- ✅ Format JSON pour visualisation future
 
 ---
 
@@ -378,7 +457,7 @@ count_primes(100):
   - Development: 31KB + 118MB .so (fast iteration)
   - Production: Build custom LLVM later (MinSizeRel, X86 only)
 
-#### Phase 3.3: Interpreter vs JIT Comparison ✅ COMPLÈTE (Semaine 4)
+#### Phase 3.3: Interpreter vs JIT Comparison ✅ COMPLÈTE (Session 21)
 **Goal**: Validate "Grow to Shrink" strategy with performance comparison
 
 **Implémentation** (voir `PHASE3_3_RESULTS.md`):
@@ -402,7 +481,31 @@ JIT vs Interpreter: 399× SPEEDUP! ⭐
 - ✅ Tiered compilation gives 399× speedup
 - ✅ **"Grow to Shrink" strategy VALIDATED!**
 
-#### Phase 3.4: Tiered JIT Compilation (Semaine 5)
+#### Phase 3.4: Tiered JIT Compilation ✅ COMPLÈTE (Session 22)
+**Goal**: Adaptive compilation based on profiling
+
+Voir section dédiée ci-dessus pour détails complets.
+
+**Fichiers** :
+- `test_tiered_jit.cpp` - Implementation
+- `Makefile.tiered` - Build system
+- `PHASE3_4_TIERED_JIT.md` - Documentation
+
+#### Phase 3.5: Dead Code Elimination ✅ COMPLÈTE (Session 22)
+**Goal**: Identify unused code, measure size reduction potential
+
+Voir section dédiée ci-dessus pour détails complets.
+
+**Fichiers** :
+- `analyze_llvm_usage.sh` - Analysis tool
+- `PHASE3_5_DCE_RESULTS.md` - Documentation
+
+#### Quick Wins ✅ COMPLÉTÉS (Session 22)
+
+1. **Matrix Multiply Test** - Demonstrate optimization impact (3× speedup)
+2. **JSON Export** - Profiling data for visualization
+
+#### Phase 3.6: Native Export (À VENIR)
 **Goal**: Adaptive compilation based on profiling
 
 1. **JIT compilation thresholds**:

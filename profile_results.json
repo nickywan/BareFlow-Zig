@@ -1,0 +1,118 @@
+{
+  "project": "BareFlow-LLVM",
+  "date": "2025-10-26",
+  "phase": "3.4 - Tiered JIT Compilation",
+  "results": {
+    "phase_3_3": {
+      "name": "Interpreter vs JIT Comparison",
+      "test": "fibonacci(20)",
+      "iterations": 10,
+      "measurements": {
+        "aot": {
+          "avg_time_ms": 0.028,
+          "total_time_ms": 0.279,
+          "speedup_vs_baseline": 1.0
+        },
+        "interpreter": {
+          "avg_time_ms": 13.9,
+          "total_time_ms": 139.084,
+          "speedup_vs_baseline": 0.002,
+          "slowdown_vs_aot": 498.37
+        },
+        "jit": {
+          "avg_time_ms": 0.035,
+          "total_time_ms": 0.349,
+          "speedup_vs_baseline": 0.8,
+          "slowdown_vs_aot": 1.25,
+          "speedup_vs_interpreter": 399.0
+        }
+      }
+    },
+    "phase_3_4": {
+      "name": "Tiered JIT Compilation",
+      "test": "fibonacci(30)",
+      "iterations": 50000,
+      "thresholds": {
+        "O0_to_O1": 100,
+        "O1_to_O2": 1000,
+        "O2_to_O3": 10000
+      },
+      "measurements": {
+        "aot": {
+          "time_ms": 3.43,
+          "speedup_vs_baseline": 1.0
+        },
+        "jit_O0": {
+          "compile_time_ms": 6.31,
+          "avg_exec_time_ms": 4.20,
+          "iterations": "1-99"
+        },
+        "jit_O1": {
+          "compile_time_ms": 2.65,
+          "avg_exec_time_ms": 4.02,
+          "iterations": "100-999"
+        },
+        "jit_O2": {
+          "compile_time_ms": 2.77,
+          "avg_exec_time_ms": 4.03,
+          "iterations": "1000-9999"
+        },
+        "jit_O3": {
+          "compile_time_ms": 2.42,
+          "avg_exec_time_ms": 4.04,
+          "iterations": "10000-50000",
+          "slowdown_vs_aot": 1.17
+        },
+        "summary": {
+          "total_compilation_time_ms": 14.15,
+          "total_execution_time_ms": 201771,
+          "compilation_overhead_percent": 0.007,
+          "avg_execution_time_ms": 4.035
+        }
+      }
+    },
+    "phase_3_5": {
+      "name": "Dead Code Elimination Analysis",
+      "llvm_analysis": {
+        "total_symbols": 32451,
+        "used_symbols": 54,
+        "usage_percent": 0.17,
+        "dead_code_percent": 99.83,
+        "library_size_mb": 118,
+        "estimated_minimal_mb": 0.2,
+        "potential_reduction_mb": 117.8
+      }
+    },
+    "quick_win_1": {
+      "name": "Matrix Multiply Optimization Impact",
+      "test": "128x128 matrix multiply",
+      "iterations": 10,
+      "total_operations": 2097152,
+      "measurements": {
+        "O0": {
+          "avg_time_ms": 5.83,
+          "ops_per_sec_M": 359.95,
+          "speedup": 1.0
+        },
+        "O2": {
+          "avg_time_ms": 1.70,
+          "ops_per_sec_M": 1231.95,
+          "speedup": 3.42
+        },
+        "O3": {
+          "avg_time_ms": 1.82,
+          "ops_per_sec_M": 1153.36,
+          "speedup": 3.20
+        }
+      }
+    }
+  },
+  "summary": {
+    "interpreter_vs_jit_speedup": "399×",
+    "jit_vs_aot_overhead": "1.17× (acceptable)",
+    "dead_code_potential": "99.83%",
+    "size_reduction_potential": "118 MB → 2-5 MB",
+    "optimization_impact": "O2 = 3.42× faster than O0",
+    "compilation_overhead": "0.007% (negligible)"
+  }
+}

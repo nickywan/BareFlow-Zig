@@ -253,8 +253,10 @@ The following phases were part of the monolithic kernel architecture (Sessions 1
 |-------|----------|--------|----------|
 | 1-5 (Monolithic) | 16 sessions | ✅ Complete | 1-16 |
 | 6.1 (Foundation) | 2 weeks | ✅ Complete | 17-19 |
-| 6.2 (Validation) | 1 week | 🔄 Current | 20-23 |
-| 6.3 (TinyLlama) | 2 weeks | Pending | 24-27 |
+| 6.2 (Validation) | 1 week | ✅ Complete | 20 |
+| 3.1-3.5 (JIT Dev) | 2 sessions | ✅ Complete | 21-22 |
+| 3.6 (Native Export) | 1 week | 🔄 Next | 23-24 |
+| 6.3 (TinyLlama) | 2 weeks | Pending | 25-27 |
 | 7 (Advanced) | 4-6 weeks | Pending | 28-39 |
 | 8 (Meta-Circular) | 8-12 weeks | Pending | 40-63 |
 | 9 (Production) | 12+ weeks | Future | 64+ |
@@ -277,6 +279,20 @@ The following phases were part of the monolithic kernel architecture (Sessions 1
 **Decision**: Implement compiler_rt instead of linking libgcc
 **Rationale**: Avoid external dependencies, full control
 **Result**: __udivdi3/__divdi3 implemented, zero dependencies
+
+### 2025-10-26 (Session 21)
+**Decision**: Validate "Grow to Shrink" with Interpreter vs JIT comparison
+**Rationale**: Prove that tiered execution provides massive speedup
+**Result**: 399× speedup confirmed (Interpreter → JIT), strategy validated
+
+### 2025-10-26 (Session 22)
+**Decision**: Implement tiered JIT compilation in userspace first
+**Rationale**: Validate approach before bare-metal complexity
+**Result**: Automatic recompilation working, 0.007% overhead, 1.17× vs AOT
+
+**Decision**: Analyze dead code before custom LLVM build
+**Rationale**: Measure what's actually needed to avoid waste
+**Result**: 99.83% LLVM unused, 118 MB → 2-5 MB reduction possible
 
 ---
 

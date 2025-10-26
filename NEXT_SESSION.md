@@ -1,12 +1,12 @@
-# Next Session - Phase 3.4: Tiered JIT Compilation
+# Next Session - Phase 3.5: Dead Code Elimination
 
 **Date**: 2025-10-26
 **Branch**: `feat/true-jit-unikernel`
-**Status**: Phase 3.3 COMPLETE, ready for Phase 3.4
+**Status**: Phase 3.4 COMPLETE, ready for Phase 3.5 or decision point
 
 ---
 
-## 🎯 What We Achieved (Phase 3.1-3.3)
+## 🎯 What We Achieved (Phase 3.1-3.4)
 
 ### ✅ Phase 3.1: LLVM JIT Verification
 - LLVM 18.1.8 installation verified
@@ -28,178 +28,239 @@
 - **"Grow to Shrink" strategy VALIDATED** ✅
 - Documented in `PHASE3_3_RESULTS.md`
 
----
-
-## 🚀 Next Phase: 3.4 - Tiered JIT Compilation
-
-### Goal
-Implement **multi-level JIT optimization** with automatic recompilation based on call count thresholds.
-
-### Why Tiered Compilation?
-
-Phase 3.3 proved:
-- JIT reaches AOT performance (1.25× overhead)
-- Interpreter → JIT gives **399× speedup**
-
-But compilation is expensive:
-- O0: Fast compile (~10ms), slower runtime
-- O3: Slow compile (~500ms), optimal runtime
-
-**Solution**: Start with O0, upgrade to O3 only for **hot** functions.
+### ✅ Phase 3.4: Tiered JIT Compilation
+- Created `test_tiered_jit.cpp`
+- **Automatic recompilation** at thresholds (100, 1000, 10000)
+- **Results**:
+  - O0: 6.31 ms compile, ~4.20 ms exec (calls 1-99)
+  - O1: 2.65 ms compile, ~4.02 ms exec (calls 100-999)
+  - O2: 2.77 ms compile, ~4.03 ms exec (calls 1000-9999)
+  - O3: 2.42 ms compile, ~4.04 ms exec (calls 10000+)
+  - **JIT O3 vs AOT**: 1.17× slower (acceptable!)
+  - **Compilation overhead**: 0.007% of total time
+- **Tiered compilation VALIDATED** ✅
+- Documented in `PHASE3_4_TIERED_JIT.md`
 
 ---
 
-## 📋 Implementation Plan
+## 🚦 Decision Point: What's Next?
 
-### Step 1: Extend `test_llvm_interpreter.cpp` (1-2h)
+**User requested pause after Phase 3** to evaluate next steps.
 
-Add tiered JIT with multiple optimization levels:
+You now have **three validated approaches**:
+1. ✅ Interpreter mode (slow, universal profiling)
+2. ✅ JIT mode (near-AOT performance)
+3. ✅ Tiered compilation (automatic optimization)
 
+### Option A: Continue to Phase 3.5-3.6 (Userspace)
+
+**Phase 3.5: Dead Code Elimination** (1-2 sessions)
+- Track which LLVM components are actually used
+- Identify dead code (40-60% of LLVM expected)
+- Custom linker script to exclude unused symbols
+- Expected reduction: 60MB → 10-20MB
+
+**Phase 3.6: Native Export** (1-2 sessions)
+- Extract JIT-compiled machine code
+- Link into standalone binary
+- Persistent snapshot to filesystem
+- Final binary: 2-5MB pure native
+
+**Benefits**:
+- ✅ Complete "Grow to Shrink" validation in userspace
+- ✅ Understand full optimization cycle before bare-metal
+- ✅ Measure actual size reductions
+- ✅ Prove concept end-to-end
+
+### Option B: Port to Bare-Metal Now
+
+**Integrate with BareFlow Unikernel**
+- Add LLVM runtime to kernel (60MB initial)
+- Implement tiered JIT in bare-metal
+- Profile actual TinyLlama workload
+- See real behavior early
+
+**Benefits**:
+- ✅ Real hardware profiling data
+- ✅ Identify bare-metal challenges early
+- ✅ Working demo sooner
+- ⚠️ More complex debugging
+
+### Option C: Pause and Architect
+
+**Deep dive into production architecture**
+- Plan memory management for JIT
+- Design snapshot format
+- Plan filesystem integration
+- Create comprehensive roadmap
+
+**Benefits**:
+- ✅ Clear plan before major work
+- ✅ Avoid rework
+- ✅ Better understanding of trade-offs
+
+---
+
+## 📊 Current State Summary
+
+### What Works (Validated in Userspace)
+- ✅ LLVM 18.1.8 JIT compilation
+- ✅ Interpreter mode (498× slower, great for profiling)
+- ✅ JIT mode (1.17× slower than AOT, near-optimal)
+- ✅ Tiered compilation (O0→O1→O2→O3 automatic)
+- ✅ Profiling (call counts, execution time)
+- ✅ Recompilation (automatic at thresholds)
+
+### What's Pending
+- ⚠️ Dead code elimination (Phase 3.5)
+- ⚠️ Native code export (Phase 3.6)
+- ⚠️ Bare-metal integration
+- ⚠️ Persistent optimization
+- ⚠️ TinyLlama model integration
+
+### Performance Validated
+- **Binary size**: 49KB (test executable)
+- **Dynamic lib**: 118MB (libLLVM-18.so)
+- **Compilation overhead**: 0.007% (negligible)
+- **JIT vs AOT**: 1.17× slower (acceptable)
+- **Interpreter vs JIT**: 399× speedup
+
+---
+
+## 🚀 Recommended Next Step: Phase 3.5
+
+### Why Phase 3.5 First?
+
+**Rationale**:
+1. **Validate size reduction**: Prove 60MB → 10-20MB is achievable
+2. **Low risk**: Userspace testing, easy to debug
+3. **Complete the story**: See full "Grow to Shrink" cycle
+4. **Inform bare-metal**: Know what to include/exclude
+
+### Phase 3.5 Implementation Plan
+
+**Step 1: Function Coverage Tracking** (30 min)
 ```cpp
-enum OptLevel {
-    OPT_INTERPRETER = -1,  // Not compiled (interpreted)
-    OPT_O0 = 0,            // Fast compile, basic codegen
-    OPT_O1 = 1,            // Balanced
-    OPT_O2 = 2,            // Aggressive
-    OPT_O3 = 3             // Maximum optimization
-};
+struct FunctionCoverage {
+    std::set<std::string> called_functions;
 
-struct TieredFunction {
-    std::string name;
-    void* code_ptr;
-    OptLevel current_level;
-    uint64_t call_count;
-    uint64_t total_cycles;
-
-    // Thresholds
-    static const int WARM_THRESHOLD = 100;      // O0
-    static const int HOT_THRESHOLD = 1000;      // O2
-    static const int VERY_HOT_THRESHOLD = 10000; // O3
-};
-```
-
-### Step 2: Implement Recompilation Logic
-
-```cpp
-void recordCall(TieredFunction& func, uint64_t cycles) {
-    func.call_count++;
-    func.total_cycles += cycles;
-
-    // Check for upgrade
-    if (func.call_count == TieredFunction::WARM_THRESHOLD) {
-        recompile(func, OPT_O0);
-    } else if (func.call_count == TieredFunction::HOT_THRESHOLD) {
-        recompile(func, OPT_O2);
-    } else if (func.call_count == TieredFunction::VERY_HOT_THRESHOLD) {
-        recompile(func, OPT_O3);
+    void recordCall(const std::string& name) {
+        called_functions.insert(name);
     }
-}
+
+    void exportCoverage(const char* filename) {
+        // Write to JSON: {"called": ["fibonacci", ...]}
+    }
+};
 ```
 
-### Step 3: Test with Realistic Workload
+**Step 2: LLVM Component Analysis** (1-2 hours)
+- Run `ldd test_tiered_jit` to see dependencies
+- Use `nm -gC libLLVM-18.so` to list all symbols
+- Track which symbols are actually used (via profiling)
+- Generate "used" vs "total" report
 
-Run `fibonacci(30)` with **50,000 iterations** to trigger all thresholds.
+**Step 3: Custom Linking** (2-3 hours)
+- Create linker script excluding dead symbols
+- Build with `-Wl,--gc-sections` (garbage collection)
+- Strip unused LLVM components
+- Measure final binary size
 
 **Expected Output**:
 ```
-Iteration 100: Recompiled fibonacci: INTERPRETER → O0
-Iteration 100: Level O0, avg 50000 cycles
-Iteration 1000: Recompiled fibonacci: O0 → O2
-Iteration 1000: Level O2, avg 1500 cycles
-Iteration 10000: Recompiled fibonacci: O2 → O3
-Iteration 10000: Level O3, avg 800 cycles
-Final: avg 900 cycles (80× faster than interpreted!)
+Original binary:    49KB
+Original libLLVM:   118MB
+After DCE binary:   30-40KB
+After DCE libLLVM:  20-40MB (50-66% reduction)
 ```
 
----
-
-## 📊 Expected Performance
-
-Based on Phase 3.3 results:
-
-| Optimization | Compile Time | Execution Time | vs Interpreter |
-|--------------|--------------|----------------|----------------|
-| **Interpreter** | 0 ms | 13.9 ms | 1× (baseline) |
-| **O0** | ~5-10 ms | ~2 ms | ~7× faster |
-| **O1** | ~20-50 ms | ~0.5 ms | ~30× faster |
-| **O2** | ~100-200 ms | ~0.05 ms | ~280× faster |
-| **O3** | ~500+ ms | ~0.035 ms | **399× faster** |
-
-**Insight**:
-- First 100 calls: Interpreter (slow, but profile gathering)
-- Calls 100-1000: O0 (fast compile, decent speed)
-- Calls 1000-10000: O2 (production speed)
-- Calls 10000+: O3 (fully optimized)
+**Step 4: Documentation**
+- Create `PHASE3_5_DCE_RESULTS.md`
+- Update `JIT_ANALYSIS.md`
+- Update `CLAUDE_CONTEXT.md`
 
 ---
 
-## 🎯 Success Criteria
+## 📝 Alternative: Quick Wins First
 
-### Minimum Requirements (1 session)
-- ✅ `test_tiered_jit.cpp` compiles and runs
-- ✅ Automatic recompilation at thresholds (100, 1000, 10000)
-- ✅ Visible speedup: Interpreter → O0 → O2 → O3
-- ✅ Final O3 matches Phase 3.3 JIT performance (~0.035 ms)
+If you want **faster results** before Phase 3.5, consider:
 
-### Stretch Goals (if time permits)
-- ✅ Add compilation time tracking
-- ✅ Graph: call_count vs avg_cycles (show step changes)
-- ✅ Test with multiple functions (identify hot vs cold)
+### Quick Win 1: Test with Different Functions (30 min)
+- Add matrix multiply to `test_tiered_jit.cpp`
+- See if O3 makes a bigger difference (should!)
+- Validate JIT specialization
+
+### Quick Win 2: Measure Interpreter Baseline (1 hour)
+- Add Interpreter mode to `test_tiered_jit.cpp`
+- Start in Interpreter, transition to JIT at threshold
+- Demonstrate full Interpreter→O0→O1→O2→O3 pipeline
+
+### Quick Win 3: Profile Data Export (1 hour)
+- Export profiling data to JSON
+- Create visualization script (Python/gnuplot)
+- Show performance evolution over time
 
 ---
 
-## 📂 Files to Create/Modify
+## 📂 Files to Review
 
-### New Files
+### Phase 3.4 Outputs
 - `test_tiered_jit.cpp` - Tiered JIT implementation
 - `Makefile.tiered` - Build system
+- `PHASE3_4_TIERED_JIT.md` - Complete results and analysis
 
-### Documentation
-- `PHASE3_4_TIERED_JIT.md` - Results and analysis
-- Update `JIT_ANALYSIS.md` - Add tiered compilation section
-- Update `CLAUDE_CONTEXT.md` - Mark Phase 3.4 complete
+### Previous Phases
+- `PHASE3_3_RESULTS.md` - Interpreter vs JIT
+- `PHASE3_2_FINDINGS.md` - Static linking research
+- `JIT_ANALYSIS.md` - Overall strategy
 
----
-
-## 🚦 Decision Point After Phase 3.4
-
-**User requested pause after Phase 3** to evaluate:
-
-### Option A: Continue to Phase 3.5-3.6 (Userspace)
-- Phase 3.5: Dead code elimination
-- Phase 3.6: Native export
-- **Benefits**: Complete userspace validation
-
-### Option B: Port to Bare-Metal Now
-- Integrate tiered JIT with kernel
-- Boot with 60MB LLVM runtime
-- **Benefits**: See real behavior early
-
-### Option C: Pause and Plan
-- Document architecture decisions
-- Plan full bare-metal roadmap
-- **Benefits**: Clear plan before committing
+### Project Documentation
+- `ROADMAP.md` - Project roadmap (needs update)
+- `CLAUDE_CONTEXT.md` - Current state (needs update)
+- `ARCHITECTURE_UNIKERNEL.md` - Unikernel architecture
 
 ---
 
-## 📝 Notes for Next Session
+## 🎯 Success Criteria (If Continuing to Phase 3.5)
 
-### Context to Remember
-1. **LLVM Version**: 18.1.8 (dynamic linking)
-2. **Strategy**: "Grow to Shrink" validated ✅
-3. **Key Finding**: JIT = 1.25× AOT, 399× Interpreter
-4. **Philosophy**: Size doesn't matter at boot 1 (60MB OK)
+### Minimum Requirements
+- ✅ Track function call coverage
+- ✅ Identify unused LLVM components
+- ✅ Measure size reduction (target: 50%+ of libLLVM)
+- ✅ Verify functionality after DCE
 
-### Commands to Resume
-```bash
-cd /home/nickywan/dev/Git/BareFlow-LLVM
-git status
-cat PHASE3_3_RESULTS.md  # Review results
-make -f Makefile.interpreter run  # Re-run if needed
-```
+### Stretch Goals
+- ✅ Custom LLVM build with minimal components
+- ✅ Static linking with reduced LLVM
+- ✅ Full dependency tree analysis
+- ✅ Automated dead code elimination tool
+
+---
+
+## 💡 User Choice Required
+
+**Please decide**:
+
+1. **Continue to Phase 3.5** (Dead Code Elimination in userspace)
+   - Complete "Grow to Shrink" validation
+   - 1-2 sessions estimated
+
+2. **Port to bare-metal now** (integrate with BareFlow kernel)
+   - See real behavior early
+   - More complex but exciting
+
+3. **Quick wins first** (test more functions, visualizations)
+   - Build confidence
+   - 1-2 hours each
+
+4. **Pause and architect** (plan production system)
+   - Create comprehensive roadmap
+   - Design decisions first
+
+**What would you like to do next?**
 
 ---
 
 **Created**: 2025-10-26
-**Status**: Ready for Phase 3.4 or decision point
-**Estimated Time**: 2-4 hours for tiered JIT
+**Status**: Phase 3.4 complete, awaiting user decision
+**Estimated Time**: Phase 3.5 = 1-2 sessions (3-6 hours)
