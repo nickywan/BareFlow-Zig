@@ -18,29 +18,47 @@
 
 #ifdef HEAP_SIZE_SMALL
     #define HEAP_SIZE (256 * 1024)          // 256 KB for QEMU kernel
+#elif defined(BARE_METAL)
+    #define HEAP_SIZE (32 * 1024 * 1024)    // 32 MB for bare-metal (safe for .bss)
 #else
-    #define HEAP_SIZE (200 * 1024 * 1024)   // 200 MB for LLVM
+    #define HEAP_SIZE (200 * 1024 * 1024)   // 200 MB for userspace
 #endif
 
 // ============================================================================
 // Heap Storage
 // ============================================================================
 
-static unsigned char heap[HEAP_SIZE] __attribute__((aligned(16)));
-static unsigned char* heap_ptr = heap;         // Current allocation pointer
-static unsigned char* heap_end = heap + HEAP_SIZE;
+// SOLUTION: Use static variables but initialize them at RUNTIME (not compile-time)
+#define HEAP_START_ADDR     0x2100000   // 33 MB - heap data start
+#define HEAP_INIT_MAGIC     0xDEADBEEF
+
+// Static variables - will be in .bss (garbage at boot), initialized on first malloc()
+static unsigned long heap_init_flag;
+static unsigned char* heap_ptr;
+static unsigned char* heap_end;
 
 // ============================================================================
 // malloc() - Bump Allocator
 // ============================================================================
 
+// External serial for debugging
+extern void serial_puts(const char* str);
+extern void serial_put_uint64(unsigned long value);
+
 void* malloc(unsigned long size) {
+    // Initialize heap on first call (check if flag is NOT the magic value)
+    if (heap_init_flag != HEAP_INIT_MAGIC) {
+        heap_ptr = (unsigned char*)HEAP_START_ADDR;
+        heap_end = (unsigned char*)(HEAP_START_ADDR + HEAP_SIZE);
+        heap_init_flag = HEAP_INIT_MAGIC;
+    }
+
     // Align size to 16 bytes
     size = (size + 15) & ~15;
 
     // Check if we have enough space
     if (heap_ptr + size > heap_end) {
-        return NULL;  // Out of memory
+        return NULL;
     }
 
     // Allocate by bumping pointer
@@ -115,7 +133,8 @@ void* realloc(void* ptr, unsigned long size) {
 // ============================================================================
 
 unsigned long malloc_get_usage(void) {
-    return (unsigned long)(heap_ptr - heap);
+    if (heap_init_flag != HEAP_INIT_MAGIC) return 0;
+    return (unsigned long)(heap_ptr - (unsigned char*)HEAP_START_ADDR);
 }
 
 unsigned long malloc_get_peak(void) {

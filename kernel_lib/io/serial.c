@@ -159,3 +159,29 @@ void serial_put_uint64(uint64_t value) {
     buffer[i] = '\0';
     serial_puts(buffer);
 }
+
+void serial_put_hex(unsigned long value) {
+    const char hex_chars[] = "0123456789ABCDEF";
+    char buffer[20];
+    int i = 0;
+
+    // Handle zero specially
+    if (value == 0) {
+        serial_puts("0x0");
+        return;
+    }
+
+    // Convert to hex (reverse order)
+    while (value > 0) {
+        buffer[i++] = hex_chars[value & 0xF];
+        value >>= 4;
+    }
+
+    // Print 0x prefix
+    serial_puts("0x");
+
+    // Print hex digits in correct order
+    while (i > 0) {
+        serial_putchar(buffer[--i]);
+    }
+}

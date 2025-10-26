@@ -14,9 +14,9 @@ CXX = clang++-18
 AR = llvm-ar-18
 
 # C flags for bare-metal 64-bit
-# Note: HEAP_SIZE_SMALL = 256KB for QEMU kernel
+# Note: HEAP_SIZE = 200MB for LLVM (HEAP_SIZE_SMALL removed)
 CFLAGS = -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
-         -fno-stack-protector -mno-red-zone -mcmodel=kernel -DBARE_METAL -DHEAP_SIZE_SMALL
+         -fno-stack-protector -mno-red-zone -mcmodel=kernel -DBARE_METAL
          # DEBUG_MALLOC disabled (causes infinite loop)
 
 # C++ flags for cpp_runtime 64-bit

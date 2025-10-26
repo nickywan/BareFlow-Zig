@@ -27,7 +27,7 @@ CXXFLAGS = -target x86_64-unknown-none \
            -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
            -fno-exceptions -fno-rtti \
            -fno-stack-protector -mno-red-zone -mcmodel=kernel \
-           -DHEAP_SIZE_SMALL \
+           -DBARE_METAL \
            -I../../../kernel_lib
 
 # Linker flags
@@ -45,13 +45,19 @@ boot.o: boot.S
 	@echo "  [AS]  $<"
 	@$(AS) $(ASFLAGS) -c $< -o $@
 
-kernel.o: kernel.cpp
+kernel.o: kernel.cpp tinyllama_model.h
 	@echo "  [CXX] $<"
 	@$(CC) $(CXXFLAGS) -c $< -o $@
 
-$(KERNEL): boot.o kernel.o $(KERNEL_LIB)
+tinyllama_model.o: tinyllama_model.c tinyllama_model.h
+	@echo "  [CC]  $<"
+	@clang-18 -target x86_64-unknown-none -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	          -fno-stack-protector -mno-red-zone -mcmodel=kernel \
+	          -I../../../kernel_lib -c $< -o $@
+
+$(KERNEL): boot.o kernel.o tinyllama_model.o $(KERNEL_LIB)
 	@echo "  [LD]  $@"
-	@$(LD) $(LDFLAGS) boot.o kernel.o $(KERNEL_LIB) -o $@
+	@$(LD) $(LDFLAGS) boot.o kernel.o tinyllama_model.o $(KERNEL_LIB) -o $@
 	@echo "  [INFO] Kernel size: $$(stat -c%s $@) bytes"
 
 iso: $(ISO)

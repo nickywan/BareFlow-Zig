@@ -60,12 +60,12 @@ init_paging:
     or $0x003, %rax             // Present + Writable
     mov %rax, (%rdi)            // PDPT[0] = pd_table | 0x003
 
-    // 3. Setup PD entries using 2 MB pages (identity map 0-256 MB)
+    // 3. Setup PD entries using 2 MB pages (identity map 0-512 MB)
     // Each PD entry maps 2 MB with PS bit set
-    // 256 MB / 2 MB = 128 entries
+    // 512 MB / 2 MB = 256 entries
 
     movabs $pd_table, %rdi
-    mov $128, %rcx              // Map 128 × 2 MB = 256 MB
+    mov $256, %rcx              // Map 256 × 2 MB = 512 MB
     xor %rax, %rax              // Physical address starts at 0
 
 .fill_pd_loop:

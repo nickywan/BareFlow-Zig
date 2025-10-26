@@ -1,8 +1,8 @@
 # BareFlow - Project Roadmap
 
-**Last Updated**: 2025-10-26 (Post-Session 32 - **malloc_llvm.c Debug COMPLETE**)
+**Last Updated**: 2025-10-26 (Post-Session 33 - **32 MB Heap & malloc VALIDATED**)
 **Architecture**: Self-Optimizing Unikernel with "Grow to Shrink" Strategy (x86-64)
-**Current Phase**: Phase 5 - TinyLlama Model Integration (Ready for Session 33)
+**Current Phase**: Phase 5 - TinyLlama Model Integration (Session 33 Complete - Model Loading Next)
 
 ---
 
@@ -379,15 +379,51 @@ Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 3. Add memory barrier (mfence)
 4. Create minimal reproducer
 
-### Session 33: Model Loading (NEXT)
-**Status**: 📝 READY TO START
+### Session 33: 32 MB Heap & TinyLlama Model Structure (COMPLETE)
+**Status**: ✅ **COMPLETE**
 
-### Session 32-33: Model Loading
-- [ ] Design weight format (.bin)
-- [ ] Implement loader in bare-metal
-- [ ] Load TinyLlama weights (~60MB)
-- [ ] Create inference skeleton
-- [ ] Profile layer execution
+**Goals**:
+- [x] Increase heap from 256 KB to 32 MB
+- [x] Fix heap_ptr corruption in malloc_bump.c
+- [x] Test TinyLlama model structure allocation
+- [x] Validate bump allocator with large heap
+- [x] Discover and solve .data/.bss initialization issue
+
+**Tasks Completed**:
+1. ✅ Extended identity mapping to 512 MB (boot.S)
+2. ✅ Changed heap size from 256 KB → 32 MB (-DBARE_METAL)
+3. ✅ Fixed heap_ptr corruption (runtime initialization)
+4. ✅ Discovered .data/.bss initialization problem in bare-metal
+5. ✅ Implemented runtime initialization with magic flag (0xDEADBEEF)
+6. ✅ Tested malloc(1024) and model struct allocation
+7. ✅ Documented critical discovery in SESSION_33_MALLOC_DEBUG.md
+
+**Critical Discovery**:
+- **Root Cause**: In bare-metal kernels, bootloader does NOT initialize .data or zero .bss!
+- **Problem**: `static unsigned char* heap_ptr = heap;` creates .data relocation → garbage values
+- **Solution**: Runtime initialization using magic flag check
+- **Impact**: Fundamental constraint of bare-metal development
+
+**Results**:
+- **Heap size**: 32 MB (0x2100000 - 0x4100000)
+- **Identity mapping**: 512 MB (256 × 2 MB pages)
+- **malloc(1024)**: ✅ SUCCESS
+- **TinyLlama struct allocation**: ✅ SUCCESS
+- **Multiple malloc() calls**: ✅ Working (2+ allocations)
+- **Kernel stability**: ✅ No crashes or reboots
+
+**Files Created**:
+- `docs/phase4/SESSION_33_MALLOC_DEBUG.md` (comprehensive documentation)
+
+**Files Modified**:
+- `kernel_lib/memory/malloc_bump.c` (runtime initialization)
+- `tests/phase4/qemu_llvm_64/boot.S` (512 MB paging)
+- `tests/phase4/qemu_llvm_64/Makefile` (-DBARE_METAL flag)
+- `tests/phase4/qemu_llvm_64/kernel.cpp` (test code)
+- `tinyllama_model.c` (debug output)
+
+### Session 34: Model Loading (NEXT)
+**Status**: 📝 READY TO START
 
 ### Session 34-36: Inference Optimization
 - [ ] Matrix multiply specialization
