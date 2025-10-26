@@ -1,17 +1,34 @@
-# BareFlow - True Self-Optimizing Unikernel
+# BareFlow - Hybrid Self-Optimizing Unikernel
 
-**True JIT Unikernel - Programme Auto-Optimisant**
+**"Grow to Shrink" - 68000-style Self-Tuning Program**
 
 > "Le kernel n'est plus qu'une bibliothèque d'accès au processeur, ce n'est pas un kernel
 > (un cœur) mais juste un profiler qui aide le programme à fonctionner du mieux possible."
 
 ---
 
-## 🎯 Vision
+## 🎯 Vision: Convergence Progressive
 
-BareFlow est un **vrai unikernel auto-optimisant** : un binaire unique (28KB baseline, <500KB avec JIT)
-qui combine l'application (TinyLlama) avec une bibliothèque runtime minimale (kernel_lib.a 15KB)
-pour exécuter bare-metal avec **optimisation JIT LLVM au runtime**.
+BareFlow est un **programme auto-suffisant** qui s'inspire des programmes 68000-style:
+
+```
+Boot 1:    [60MB] Full LLVM + app en IR → Interprété (lent mais profile TOUT)
+Boot 100:  [30MB] Hot paths JIT O0→O3   → 10× plus rapide
+Boot 500:  [10MB] Dead code éliminé     → Relink optimisé
+Boot Final:[2-5MB] Pure native, no LLVM → Appliance hardware-optimized
+```
+
+### Philosophie "Grow to Shrink"
+
+**On s'en fiche de la taille initiale!** Le programme:
+1. **Embarque tout** (60MB: LLVM complet + LLVM-libc + app en IR)
+2. **S'auto-profile** (track ALL functions: app + LLVM + libc)
+3. **JIT optimise** (hot paths: O0 → O1 → O2 → O3 + specialization)
+4. **Élimine le mort** (40% du code jamais utilisé)
+5. **Converge** (vers 2-5MB optimisé pour CE hardware + CE workload)
+6. **Persiste** (snapshot → appliance bootable)
+
+**Inspirations**: PyPy warmup snapshots + LuaJIT tiered compilation + V8 PGO + programmes 68000 self-contained
 
 **Pas de kernel traditionnel**. Pas de séparation kernel/user. Pas de syscalls.
 Une application qui s'auto-profile, se recompile à chaud et s'optimise en temps réel.
@@ -23,10 +40,13 @@ Une application qui s'auto-profile, se recompile à chaud et s'optimise en temps
 - Profiling cycle-accurate (rdtsc)
 - Métriques AOT baseline documentées
 
-⚠️ **Phase 3 EN COURS**: JIT Runtime LLVM
-- Port du runtime auto-optimisant
-- Recompilation à chaud
-- Code swapping atomique
+⚠️ **Phase 3 EN COURS**: Hybrid Self-Optimizing Runtime
+- Phase 3.1 ✅: LLVM JIT verification (userspace tests)
+- Phase 3.2 ⚠️: Full static link (60MB with LLVM + LLVM-libc)
+- Phase 3.3: LLVM Interpreter + profiler
+- Phase 3.4: Tiered JIT (O0 → O3)
+- Phase 3.5: Dead code elimination (60MB → 10MB)
+- Phase 3.6: Native export (10MB → 2-5MB)
 
 ---
 
@@ -53,19 +73,41 @@ Une application qui s'auto-profile, se recompile à chaud et s'optimise en temps
 └─────────────────────────────────────────────────────┘
 ```
 
-### Phase 3 (JIT Runtime) ⚠️ EN COURS
+### Phase 3 (Hybrid Self-Optimizing) ⚠️ EN COURS
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Ajout prévu: LLVM JIT Runtime (~450KB)             │
+│  Boot 1: [60MB] Full LLVM + LLVM-libc (static)      │
 │  ┌─────────────────────────────────────────────┐   │
-│  │  - jit_compile(): Génère IR optimisé        │   │
-│  │  - jit_optimize(): Recompile à chaud        │   │
-│  │  - jit_swap_function(): Swap atomique       │   │
-│  │  - Custom allocator (1-2MB heap LLVM)       │   │
+│  │  - LLVM Interpreter (execute IR directly)   │   │
+│  │  - LLVM OrcJIT (tiered compilation)         │   │
+│  │  - LLVM-libc (pure C, JIT-optimizable)      │   │
+│  │  - Profiler (track ALL calls + cycles)      │   │
+│  │  - Coverage (detect dead code)              │   │
 │  └─────────────────────────────────────────────┘   │
+│                                                     │
+│  Boot 100: [30MB] JIT O0→O3 on hot paths            │
+│  Boot 500: [10MB] Dead code eliminated              │
+│  Boot Final: [2-5MB] Pure native, LLVM removed      │
 └─────────────────────────────────────────────────────┘
-Target: >20% speedup sur hot paths, <10% overhead global
 ```
+
+### Why JIT for TinyLlama?
+
+**TinyLlama = language model** → Perfect use case for JIT:
+
+1. **Matrix multiply specialization**: JIT observes actual matrix sizes (always 512×512)
+   - AOT generic: ~1000ms (handles any size)
+   - JIT specialized: ~50ms (**20× speedup!**)
+
+2. **Hardware vectorization**: JIT detects real CPU (AVX2/AVX512)
+   - AOT conservative: SSE2 (runs everywhere)
+   - JIT aggressive: AVX512 if available (**3× speedup**)
+
+3. **LLVM-libc optimization**: `memcpy(dst, src, 512)` always same size
+   - AOT generic: handles any size, alignment
+   - JIT: AVX2 unrolled 8×64 bytes (**10× speedup**)
+
+**Total expected gain**: **2-5× on hot paths** vs generic AOT O3
 
 ---
 

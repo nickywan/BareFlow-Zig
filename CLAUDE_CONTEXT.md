@@ -45,6 +45,90 @@
 
 ---
 
+## 🎯 Nouvelle Stratégie: "Grow to Shrink" (Hybride AOT+JIT)
+
+**MISE À JOUR 2025-10-26**: Philosophie révisée basée sur programmation 68000-style
+
+### Principe Fondamental
+
+> "Le programme se suffit à lui-même, embarque tout au départ (60MB),
+> s'auto-profile, s'auto-optimise, et converge vers un binaire minimal (2-5MB).
+> Comme les programmes sur 68000 qui étaient self-contained avec self-tuning persistant."
+
+**Inspirations**:
+- **68000 programs**: Self-sufficient, persistent optimization
+- **PyPy**: Warmup snapshots (interpret → JIT → freeze)
+- **LuaJIT**: Tiered compilation (interpreter → O0 → O1 → O2 → O3)
+- **V8**: Profile-guided optimization at runtime
+
+### Cycle de Vie (Convergence Progressive)
+
+```
+Boot 1-10:   [60MB] Full LLVM + LLVM-libc en IR → Interprété (lent)
+                    ↓ Profile TOUT
+Boot 10-100: [30MB] Hot paths JIT O0→O1→O2→O3
+                    ↓ Identify dead code
+Boot 100-500:[10MB] Dead code eliminated, relink
+                    ↓ Export optimized snapshot
+Boot 500+:   [2-5MB] Pure native (LLVM removed)
+                    ↓ Peut redémarrer cycle sur nouveau hardware
+```
+
+### Pourquoi JIT pour TinyLlama?
+
+**TinyLlama = modèle de langage** → Cas d'usage IDÉAL pour JIT:
+
+1. **Matrix multiply**: JIT spécialise pour tailles réelles (ex: toujours 512×512)
+   - AOT générique: ~1000ms
+   - JIT spécialisé: ~50ms (**20× speedup!**)
+
+2. **Vectorisation**: JIT détecte CPU réel (AVX2/AVX512) au boot
+   - AOT conservateur: SSE2 (compatible partout)
+   - JIT agressif: AVX512 si disponible (**3× speedup**)
+
+3. **Devirtualisation**: JIT inline les callbacks après observation
+   - AOT: appels indirects (cache miss)
+   - JIT: inline complet (**5× speedup**)
+
+**Gain total estimé**: **2-5× sur hot paths** vs AOT O3 générique
+
+### LLVM-libc: Clé de la Performance
+
+**Au lieu de `kernel_lib/stdlib.c` custom**, utiliser **LLVM-libc**:
+
+- **Écrite en C pur** (pas d'inline asm) → entièrement JIT-optimisable
+- **Compilée en LLVM IR** → cross-module optimization avec app
+- **Spécialisation automatique**: `memcpy(dst, src, 512)` → version AVX2 unrolled
+
+**Exemple concret**:
+```c
+// Generic LLVM-libc memcpy (handles any size, alignment)
+void* memcpy(void* dst, const void* src, size_t n);
+
+// Après profiling: TOUJOURS appelé avec n=512, aligned 64
+// JIT génère version spécialisée:
+void* memcpy_512_aligned64(void* dst, const void* src) {
+    // 8 iterations AVX2 (64 bytes × 8 = 512)
+    // No bounds check, no alignment check
+    // 10× faster!
+}
+```
+
+### Fichiers à Remplacer
+
+```
+kernel_lib/memory/string.c   → llvm-libc (memcpy, memset, strlen, etc.)
+kernel_lib/memory/malloc.c   → llvm-libc allocator
+kernel_lib/stdlib.c          → llvm-libc (la plupart des fonctions)
+```
+
+**Ce qui reste custom**:
+- I/O hardware: VGA, serial, keyboard (bare-metal specific)
+- CPU privileged: rdtsc, cpuid
+- JIT runtime lui-même
+
+---
+
 ## ✅ État Actuel (Phase 2 - 2025-10-26)
 
 ### IMPORTANT: État du Projet
@@ -271,74 +355,143 @@ count_primes(100):
 
 ---
 
-## 🎯 Prochaines Étapes - JIT Runtime Implementation
+## 🎯 Prochaines Étapes - Stratégie Hybride "Grow to Shrink"
 
-### Phase 3: Port du Runtime JIT Auto-Optimisant
+### Phase 3: Hybrid Self-Optimizing Unikernel (Semaines 3-7)
 
-**OBJECTIF**: Porter le runtime LLVM dans l'unikernel pour activer la self-optimization.
+**OBJECTIF**: Créer un unikernel qui démarre à 60MB, s'auto-profile, s'auto-optimise et converge vers 2-5MB.
 
-#### Étape 1: Analyse de l'existant (Semaine 3)
-1. **Auditer kernel/jit_llvm18.cpp** (ancien monolithique)
-   - Identifier dépendances LLVM (OrcJIT, ExecutionSession)
-   - Lister dépendances C++ stdlib (std::vector, std::string)
-   - Analyser memory footprint (~500KB+ avec LLVM)
+#### Phase 3.1: LLVM JIT Verification ✅ COMPLÈTE (Semaine 3)
+1. ✅ Vérifier installation LLVM 18.1.8
+2. ✅ Créer test JIT minimal (userspace)
+3. ✅ Mesurer tailles binaires (31KB dynamic, ~60MB static libs)
+4. ✅ Documenter stratégie dans JIT_ANALYSIS.md
 
-2. **Définir contraintes bare-metal**
-   - Pas de C++ exceptions (`-fno-exceptions`)
-   - Custom allocator pour LLVM (heap dedicated)
-   - Static linking LLVM libs (libLLVM.a)
-   - Target i686 uniquement
+#### Phase 3.2: Full Static Link ⚠️ EN COURS (Semaine 3)
+**Goal**: 60MB bootable binary avec full LLVM + LLVM-libc
 
-3. **Design nouveau JIT runtime**
-   - `kernel_lib/jit/runtime_llvm.{h,c}` - C interface
-   - `kernel_lib/jit/runtime_llvm_impl.cpp` - LLVM wrapper
-   - API: `jit_compile()`, `jit_optimize()`, `jit_swap_function()`
-
-#### Étape 2: Minimal JIT Implementation (Semaine 4)
-1. **Static LLVM build pour bare-metal**
+1. **Static link ALL LLVM archives** (on s'en fiche de la taille!)
    ```bash
-   cmake -DLLVM_TARGETS_TO_BUILD=X86 \
-         -DLLVM_ENABLE_RTTI=OFF \
-         -DLLVM_ENABLE_EH=OFF \
-         -DCMAKE_BUILD_TYPE=MinSizeRel
+   clang++-18 -m32 -static -nostdlib \
+     -Wl,--whole-archive /usr/lib/llvm-18/lib/libLLVM*.a \
+     -Wl,--no-whole-archive \
+     -o bareflow_full.elf
    ```
 
-2. **Custom allocator**
-   - `jit_heap_init()` avec pool dédié (1-2MB)
-   - Override `operator new/delete` pour LLVM
+2. **Intégrer LLVM-libc** (replace kernel_lib/stdlib.c)
+   - Build llvm-libc to LLVM IR (.bc files)
+   - Link with app IR (cross-module optimization)
+   - Keep custom I/O (VGA, serial, keyboard)
 
-3. **Proof-of-concept: Recompile fibonacci**
-   - Profiling détecte >100 calls
-   - Génère LLVM IR optimisé (-O3)
-   - Swap atomique du code
+3. **Test in userspace first**:
+   - Verify 60MB binary runs
+   - Test LLVM Interpreter mode
+   - Validate basic JIT compilation
 
-#### Étape 3: Integration & Testing (Semaine 5)
-1. **Mesurer overhead JIT**
-   - Boot time avec LLVM (+X cycles?)
-   - Memory footprint (+XMB?)
-   - Recompilation time par fonction
+#### Phase 3.3: LLVM Interpreter + Profiler (Semaine 4)
+**Goal**: Execute TinyLlama from LLVM IR, profile everything
 
-2. **Benchmark AOT vs JIT**
-   - Comparer avec baseline AOT (voir métriques ci-dessus)
-   - Target: >20% speedup sur hot paths après recompilation
-   - Acceptable: <10% overhead global
+1. **Compile app to LLVM IR** (not native code):
+   ```bash
+   clang-18 -emit-llvm -c tinyllama.c -o tinyllama.bc
+   clang-18 -emit-llvm -c llvm-libc/*.c -o libc.bc
+   llvm-link-18 tinyllama.bc libc.bc -o app_full.bc
+   ```
 
-3. **Persistence layer**
-   - Sauver IR optimisé sur disque (FAT16)
-   - Reload au prochain boot (skip recompilation)
+2. **Implement interpreter mode**:
+   - Use `llvm::Interpreter` or `lli` functionality
+   - Execute IR directly (slow, but works)
+   - Instrument all function calls
 
-#### Étape 4: TinyLlama Model Integration (Semaine 6+)
-1. Load model weights (.bin file)
-2. Implement inference loop
-3. Profile et optimize attention layers
-4. Target: <100ms inference time
+3. **Profile tracking**:
+   - Hook every function entry/exit
+   - Record: call_count, total_cycles, arguments
+   - Store profiles to FAT16 at shutdown
 
-### Success Criteria
-- ⚠️ JIT runtime fonctionnel (compile + swap)
-- ⚠️ Speedup >20% vs AOT sur fibonacci après 100 calls
-- ⚠️ Overhead <10% sur total execution time
-- ⚠️ Binary size <500KB (LLVM static linked)
-- ⚠️ Boot time <5s (QEMU)
+#### Phase 3.4: Tiered JIT Compilation (Semaine 5)
+**Goal**: Adaptive compilation based on profiling
+
+1. **JIT compilation thresholds**:
+   - 10 calls → JIT O0 (fast compilation)
+   - 100 calls → JIT O1 (balanced)
+   - 1000 calls → JIT O2 + specialization
+   - 10000 calls → JIT O3 + vectorization
+
+2. **Code swapping**:
+   - Replace interpreter call with native JIT code
+   - Atomic pointer update (no locks needed in unikernel)
+
+3. **Specialization**:
+   - Detect constant arguments (e.g., matrix size always 512)
+   - Generate specialized versions
+   - Inline across app + libc boundaries
+
+#### Phase 3.5: Dead Code Elimination (Semaine 6)
+**Goal**: Remove unused code, shrink binary 60MB → 10MB
+
+1. **Coverage analysis**:
+   - Mark all reachable functions
+   - Identify unreached LLVM passes
+   - Find unused libc functions
+
+2. **Selective relinking**:
+   - Generate new linker script
+   - Exclude dead symbols
+   - Measure size reduction
+
+3. **Snapshot persistence**:
+   - Write optimized binary to FAT16: `/boot/snapshots/bareflow_bootXXX.img`
+   - Load on next boot instead of full version
+
+#### Phase 3.6: Native Export (Semaine 7)
+**Goal**: Export JIT-optimized code as pure AOT binary (2-5MB)
+
+1. **Freeze optimizations**:
+   - All hot paths compiled to native
+   - No more interpreter needed
+   - LLVM runtime can be removed
+
+2. **Final binary**:
+   - Pure native code (2-5MB)
+   - Can boot without JIT runtime
+   - Optimal for THIS hardware + workload
+
+3. **Hardware adaptation**:
+   - If booted on new CPU → re-enable JIT
+   - Recompile with new ISA features
+   - Converge again
+
+### Success Criteria (Revised for Hybrid Strategy)
+
+**Phase 3.2 (Static Link)**:
+- ⚠️ 60MB bootable binary with full LLVM
+- ⚠️ LLVM-libc integrated (replace custom stdlib)
+- ⚠️ Boot in QEMU bare-metal
+- ⚠️ LLVM Interpreter executes simple function
+
+**Phase 3.3 (Interpreter + Profiler)**:
+- ⚠️ TinyLlama runs from LLVM IR (interpreted)
+- ⚠️ All function calls tracked with cycle counts
+- ⚠️ Profiles persisted to FAT16
+- ⚠️ Coverage map identifies dead code
+
+**Phase 3.4 (Tiered JIT)**:
+- ⚠️ Hot path JIT compilation (O0 → O3)
+- ⚠️ Measure >2× speedup on matrix_multiply after 100 boots
+- ⚠️ Specialization works (constant propagation for matrix sizes)
+- ⚠️ Cross-module inlining (app + libc)
+
+**Phase 3.5 (Dead Code Elimination)**:
+- ⚠️ Binary shrinks from 60MB → <10MB
+- ⚠️ Identify >40% dead LLVM code
+- ⚠️ Snapshot persistence works
+- ⚠️ Boot from optimized snapshot
+
+**Phase 3.6 (Native Export)**:
+- ⚠️ Final binary <5MB (pure native, no LLVM runtime)
+- ⚠️ Performance equivalent to hand-optimized AOT
+- ⚠️ Can re-enable JIT on new hardware
+- ⚠️ Total speedup >5× vs initial interpreted version
 
 ---
 
