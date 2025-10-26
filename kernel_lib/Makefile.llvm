@@ -31,7 +31,8 @@ CXXFLAGS = -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
 # I/O drivers
 IO_SRCS = io/vga.c io/serial.c
 
-# Memory management (using bump allocator for debugging)
+# Memory management (using bump allocator - malloc_llvm.c has unresolved issues)
+# See docs/phase4/MALLOC_LLVM_DEBUG_SESSION32.md for debug details
 MEM_SRCS = memory/malloc_bump.c memory/string.c memory/compiler_rt.c
 
 # CPU drivers

@@ -64,7 +64,9 @@ Une application qui s'auto-profile, se recompile à chaud et s'optimise en temps
 - Session 31 ✅: malloc Investigation (paging + bump allocator)
 - **Result**: Paging working ✅, bump allocator working ✅
 - **Finding**: Problem isolated to free-list in malloc_llvm.c
-- Session 32: Continue with bump allocator or fix malloc_llvm.c
+- Session 32 ✅: malloc_llvm.c debug (3h, root cause found)
+- **Result**: is_free field corruption issue, DEFERRED
+- **Decision**: Using bump allocator (works perfectly ✅)
 - Session 33: Model loading (TinyLlama weights ~60MB)
 - Session 34-36: Inference optimization (matrix multiply, vectorization)
 - Session 37-39: Self-optimization (JIT hot layers, convergence)

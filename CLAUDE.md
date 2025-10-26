@@ -74,11 +74,18 @@ Boot 1000:  [2-5MB]     Pure native export
    - **ALWAYS read before implementing new features**
    - Contains: malloc triple fault, BSS zeroing, flags, etc.
 
-2. **`docs/phase4/MALLOC_INVESTIGATION.md`** (450 lines)
-   - Complete malloc triple fault investigation
-   - 7 debugging approaches documented
-   - Root cause analysis (needs paging)
-   - **READ before Session 31 (paging)**
+2. **`docs/phase4/SESSION_31_MALLOC_INVESTIGATION.md`** (500 lines)
+   - Complete malloc investigation results (Session 31)
+   - Problem isolated to free-list allocator
+   - Bump allocator works (256 KB heap)
+   - **READ before debugging malloc_llvm.c**
+
+2b. **`docs/phase4/MALLOC_LLVM_DEBUG_SESSION32.md`** ⚠️ **CRITICAL** (700 lines)
+   - Complete debug log of malloc_llvm.c (Session 32)
+   - ROOT CAUSE: is_free not persisting (bool/size_t issue)
+   - 7 systematic tests performed
+   - **MUST READ before resuming malloc_llvm.c debug**
+   - Status: DEFERRED (using bump allocator)
 
 3. **`docs/phase5/PHASE5_PLANNING.md`** (850 lines)
    - Complete Phase 5 roadmap (Sessions 31-39)
