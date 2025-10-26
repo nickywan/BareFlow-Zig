@@ -34,6 +34,13 @@ _start:
     // Clear direction flag
     cld
 
+    // Zero .bss section (CRITICAL for malloc)
+    movabs $_bss_start, %rdi
+    movabs $_bss_end, %rcx
+    sub %rdi, %rcx          // size = end - start
+    xor %eax, %eax          // value = 0
+    rep stosb               // memset(bss, 0, size)
+
     // Call kernel main
     call kernel_main
 

@@ -31,16 +31,28 @@ typedef unsigned long size_t;
 void* memset(void* s, int c, size_t n);
 void* memcpy(void* dest, const void* src, size_t n);
 
+// Debug serial output (if available)
+#ifdef DEBUG_MALLOC
+extern void serial_putchar(char c);
+static void debug_print(const char* msg) {
+    while (*msg) {
+        serial_putchar(*msg++);
+    }
+}
+#else
+#define debug_print(msg) ((void)0)
+#endif
+
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
 // Heap size configuration
-// - QEMU kernel: 1 MB (static .bss, safe for Multiboot2)
+// - QEMU kernel: 256 KB (in .data section, must be small)
 // - Userspace test: 32 MB
 // - Full bare-metal with paging: 200 MB (future)
 #ifdef HEAP_SIZE_SMALL
-#define HEAP_SIZE (1 * 1024 * 1024)    // 1 MB for QEMU kernel
+#define HEAP_SIZE (256 * 1024)         // 256 KB for QEMU kernel (.data section)
 #elif defined(BARE_METAL)
 #define HEAP_SIZE (32 * 1024 * 1024)   // 32 MB for bare-metal (safe for .bss)
 #else
@@ -68,6 +80,7 @@ typedef struct Block {
 // HEAP STORAGE
 // ============================================================================
 
+// Heap in .bss (uninitialized)
 static uint8_t heap[HEAP_SIZE] __attribute__((aligned(16)));
 static Block* free_list = NULL;
 static bool heap_initialized = false;
@@ -194,20 +207,34 @@ static Block* coalesce(Block* block) {
 // ============================================================================
 
 static void init_heap() {
+    debug_print("[malloc] init_heap() START\n");
+
     if (heap_initialized) {
+        debug_print("[malloc] heap already initialized\n");
         return;
     }
 
+    debug_print("[malloc] Getting heap pointer...\n");
     // Initialize first block to cover entire heap
     Block* initial_block = (Block*)heap;
+
+    debug_print("[malloc] Setting block size...\n");
     initial_block->size = HEAP_SIZE;
+
+    debug_print("[malloc] Setting is_free...\n");
     initial_block->is_free = true;
+
+    debug_print("[malloc] Setting next/prev...\n");
     initial_block->next = NULL;
     initial_block->prev = NULL;
 
+    debug_print("[malloc] Setting free_list...\n");
     free_list = initial_block;
+
+    debug_print("[malloc] Setting heap_initialized...\n");
     heap_initialized = true;
 
+    debug_print("[malloc] Resetting stats...\n");
     // Reset statistics
     total_allocated = 0;
     total_freed = 0;
@@ -215,6 +242,8 @@ static void init_heap() {
     peak_usage = 0;
     num_allocations = 0;
     num_frees = 0;
+
+    debug_print("[malloc] init_heap() DONE\n");
 }
 
 // ============================================================================
@@ -222,12 +251,18 @@ static void init_heap() {
 // ============================================================================
 
 void* malloc(size_t size) {
+    debug_print("[malloc] malloc() called\n");
+
     if (size == 0) {
+        debug_print("[malloc] size == 0, returning NULL\n");
         return NULL;
     }
 
+    debug_print("[malloc] Checking heap_initialized...\n");
     if (!heap_initialized) {
+        debug_print("[malloc] Calling init_heap()...\n");
         init_heap();
+        debug_print("[malloc] init_heap() returned\n");
     }
 
     // Align size and add header

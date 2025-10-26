@@ -58,7 +58,16 @@ extern "C" void kernel_main() {
     println("  Serial output working!");
 
     println("");
-    println("[Test 2] Memory allocator (1 MB heap):");
+    println("[Test 2] Memory allocator (256 KB heap):");
+
+    // Test 1: Can we access malloc internals?
+    extern unsigned long malloc_get_heap_size();
+    println("  Testing heap access...");
+    unsigned long heap_size = malloc_get_heap_size();
+    if (heap_size > 0) {
+        println("  Heap size query OK");
+    }
+
     println("  About to call malloc(1024)...");
     void* ptr1 = malloc(1024);
     println("  malloc returned!");
