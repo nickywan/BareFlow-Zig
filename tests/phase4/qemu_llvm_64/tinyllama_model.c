@@ -407,7 +407,12 @@ int tinyllama_create_model(TinyLlamaModel** out_model) {
 
     serial_puts("=== Model created successfully! ===\n");
     serial_puts("[C_FUNC] About to return 0\n\n");
-    return 0;
+
+    // Fix: Directly set %eax register (x86-64 ABI return register)
+    // Clang was storing to stack which gets corrupted in bare-metal -O0
+    register int ret __asm__("eax") = 0;
+    __asm__ volatile("" : "+r"(ret));  // Prevent optimization
+    return ret;
 
 create_error:
     serial_puts(" FAILED\n");
