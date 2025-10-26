@@ -62,7 +62,41 @@ Boot 1000:  [2-5MB]     Pure native export
 3. README.md          # Vision and strategy overview
 ```
 
-### 2. Check Current State
+### 2. Read Important Reference Documents
+
+**User Directive**: "ta mémoire doit aussi faire référence a des documents importants, si tu en crée un nouveau que tu estimes important mets en mémoire de le lire avant de poursuivre la session"
+
+**Critical Reference Documents** (READ BEFORE CONTINUING):
+
+1. **`docs/phase4/QEMU_BOOT_ISSUES_REFERENCE.md`** ⚠️ **CRITICAL**
+   - All known QEMU boot problems and solutions
+   - Created Session 30
+   - **ALWAYS read before implementing new features**
+   - Contains: malloc triple fault, BSS zeroing, flags, etc.
+
+2. **`docs/phase4/MALLOC_INVESTIGATION.md`** (450 lines)
+   - Complete malloc triple fault investigation
+   - 7 debugging approaches documented
+   - Root cause analysis (needs paging)
+   - **READ before Session 31 (paging)**
+
+3. **`docs/phase5/PHASE5_PLANNING.md`** (850 lines)
+   - Complete Phase 5 roadmap (Sessions 31-39)
+   - Session 31: Paging implementation (CRITICAL)
+   - **READ before starting any Phase 5 work**
+
+4. **`docs/phase4/ARCH_DECISION_64BIT.md`**
+   - Why 64-bit migration (not 32-bit)
+   - Impact on all future work
+   - **READ if questioning architecture choices**
+
+**How to maintain this list**:
+- When creating a NEW important document, add it here
+- Mark with ⚠️ **CRITICAL** if blocking progress
+- Include when to read it (before which session)
+- Keep list under 10 documents (archive old ones)
+
+### 3. Check Current State
 ```bash
 # Check git status
 git status
@@ -76,7 +110,7 @@ tree -d -L 2 || ls -la
 ls -la tests/phase3/*.cpp 2>/dev/null | head -5
 ```
 
-### 3. Read Phase-Specific Documentation
+### 4. Read Phase-Specific Documentation
 Based on current phase in ROADMAP.md:
 - **Phase 4 (Bare-Metal JIT)**: Read `docs/phase3/PHASE3_*.md` for validation results
 - **Phase 5 (TinyLlama)**: Read `ARCHITECTURE_UNIKERNEL.md`
@@ -358,7 +392,9 @@ Debug with: `make debug` in tinyllama/
 
 ---
 
-## 📌 CRITICAL: Update README.md Every Session
+## 📌 CRITICAL: Session Guidelines (User Directives)
+
+### 1. Update README.md Every Session
 
 **User Request**: "garde en mémoire de mettre à jour aussi le README principal si nécessaire à chaque session"
 
@@ -373,6 +409,57 @@ Debug with: `make debug` in tinyllama/
 - Add session results (Session X ✅: brief description)
 - Update "Next Phase" section if transitioning
 - Update metrics if significant changes
+
+### 2. Test in QEMU, Not Userspace
+
+**User Request**: "garde ne mémoire de tester en userspace que si c'est strictement necessaire sinon qemu"
+
+**Testing Policy**:
+- ✅ **DEFAULT**: Test in QEMU (qemu-system-x86_64)
+- ✅ **ALWAYS**: Bare-metal code MUST be tested in QEMU
+- ❌ **AVOID**: Userspace testing unless strictly necessary
+- ✅ **EXCEPTION**: Userspace OK for rapid prototyping if it saves significant time
+
+**Rationale**:
+- QEMU provides real x86-64 environment
+- Catches issues userspace can't (paging, interrupts, BSS, etc.)
+- Faster feedback than hardware
+- Reproducible test environment
+
+**When userspace IS acceptable**:
+- Quick LLVM API prototyping (30 min vs 2 hours in QEMU)
+- Testing C++ standard library compatibility
+- Benchmarking algorithms (not memory/boot behavior)
+
+**When userspace is NOT acceptable**:
+- Testing malloc (needs real memory layout)
+- Testing boot sequence (needs Multiboot2/GRUB)
+- Testing interrupts/exceptions
+- Testing memory paging
+- **Final validation**: ALWAYS in QEMU
+
+### 3. Reference Boot Issues from Docs and Commits
+
+**User Request**: "garde aussi en mémoire tous les problèmes de boot et leur résolution sur qemu, c'est dans les *.md ou sinon dans les message commits"
+
+**Boot Issue Knowledge Base**:
+- **Primary Reference**: `docs/phase4/QEMU_BOOT_ISSUES_REFERENCE.md` (created Session 30)
+- **Investigation Reports**: `docs/phase4/MALLOC_INVESTIGATION.md`
+- **Commit Messages**: Search with `git log --grep="fix\|Fix\|error\|Error"`
+
+**Known Issues (memorized)**:
+1. **malloc triple fault** → Needs paging (Session 31)
+2. **Entry point naming** → Use `main()` not `kernel_main()`
+3. **Serial function** → Use `serial_putchar()` not `serial_putc()`
+4. **BSS not zeroed** → Manual `rep stosb` in boot.S
+5. **Assembly syntax** → Use `movabs` for 64-bit addresses
+6. **Red zone corruption** → Use `-mno-red-zone` flag
+7. **Code model** → Use `-mcmodel=kernel` flag
+
+**Before implementing new features**:
+1. Check `QEMU_BOOT_ISSUES_REFERENCE.md` for known issues
+2. Review recent commit messages for similar problems
+3. Apply known solutions proactively
 
 ---
 
