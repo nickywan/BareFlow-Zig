@@ -73,9 +73,16 @@ serial.o: serial.c
 	          -fno-stack-protector -mno-red-zone -mcmodel=kernel \
 	          -fcf-protection=none -c $< -o $@
 
-$(KERNEL): boot.o kernel.o tinyllama_model.o malloc_simple.o serial.o
+tinyllama_inference.o: tinyllama_inference.c tinyllama_inference.h tinyllama_model.h
+	@echo "  [CC]  $< (transformer inference - O0)"
+	@clang-18 -target x86_64-unknown-none -ffreestanding -nostdlib -fno-pie -O0 -Wall -Wextra \
+	          -fno-stack-protector -mno-red-zone -mcmodel=kernel \
+	          -fcf-protection=none \
+	          -I../../../kernel_lib -c $< -o $@
+
+$(KERNEL): boot.o kernel.o tinyllama_model.o tinyllama_inference.o malloc_simple.o serial.o
 	@echo "  [LD]  $@ (standalone 64-bit, no kernel_lib)"
-	@$(LD) $(LDFLAGS) boot.o kernel.o tinyllama_model.o malloc_simple.o serial.o -o $@
+	@$(LD) $(LDFLAGS) boot.o kernel.o tinyllama_model.o tinyllama_inference.o malloc_simple.o serial.o -o $@
 	@echo "  [INFO] Kernel size: $$(stat -c%s $@) bytes"
 
 iso: $(ISO)
