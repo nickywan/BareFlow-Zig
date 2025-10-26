@@ -1,0 +1,129 @@
+# Makefile.full_static - Full LLVM Static Linking Test
+#
+# Goal: Create 60MB binary with ALL LLVM statically linked
+# Strategy: Link all LLVM archives, measure size, verify it works
+
+CXX = clang++-18
+LLVM_CONFIG = llvm-config-18
+LLVM_LIB_DIR = /usr/lib/llvm-18/lib
+
+# Get LLVM compile flags
+CXXFLAGS = -O2 $(shell $(LLVM_CONFIG) --cxxflags)
+
+# Full static linking flags
+LDFLAGS_STATIC = -static
+
+# LLVM libraries needed for OrcJIT (minimal set)
+LLVM_LIBS_MINIMAL = \
+	$(LLVM_LIB_DIR)/libLLVMOrcJIT.a \
+	$(LLVM_LIB_DIR)/libLLVMOrcTargetProcess.a \
+	$(LLVM_LIB_DIR)/libLLVMOrcShared.a \
+	$(LLVM_LIB_DIR)/libLLVMExecutionEngine.a \
+	$(LLVM_LIB_DIR)/libLLVMRuntimeDyld.a \
+	$(LLVM_LIB_DIR)/libLLVMX86CodeGen.a \
+	$(LLVM_LIB_DIR)/libLLVMX86Desc.a \
+	$(LLVM_LIB_DIR)/libLLVMX86Info.a \
+	$(LLVM_LIB_DIR)/libLLVMX86AsmParser.a \
+	$(LLVM_LIB_DIR)/libLLVMAsmParser.a \
+	$(LLVM_LIB_DIR)/libLLVMCodeGen.a \
+	$(LLVM_LIB_DIR)/libLLVMCore.a \
+	$(LLVM_LIB_DIR)/libLLVMSupport.a \
+	$(LLVM_LIB_DIR)/libLLVMTarget.a \
+	$(LLVM_LIB_DIR)/libLLVMAnalysis.a \
+	$(LLVM_LIB_DIR)/libLLVMTransformUtils.a \
+	$(LLVM_LIB_DIR)/libLLVMScalarOpts.a \
+	$(LLVM_LIB_DIR)/libLLVMInstCombine.a \
+	$(LLVM_LIB_DIR)/libLLVMAggressiveInstCombine.a \
+	$(LLVM_LIB_DIR)/libLLVMObject.a \
+	$(LLVM_LIB_DIR)/libLLVMBitReader.a \
+	$(LLVM_LIB_DIR)/libLLVMBitWriter.a \
+	$(LLVM_LIB_DIR)/libLLVMBitstreamReader.a \
+	$(LLVM_LIB_DIR)/libLLVMMC.a \
+	$(LLVM_LIB_DIR)/libLLVMMCParser.a \
+	$(LLVM_LIB_DIR)/libLLVMTextAPI.a \
+	$(LLVM_LIB_DIR)/libLLVMProfileData.a \
+	$(LLVM_LIB_DIR)/libLLVMBinaryFormat.a \
+	$(LLVM_LIB_DIR)/libLLVMRemarks.a \
+	$(LLVM_LIB_DIR)/libLLVMDemangle.a
+
+# System libraries
+SYS_LIBS = -lpthread -ldl -lz -lm -ltinfo
+
+.PHONY: all clean info test-minimal test-full
+
+all: test_full_static
+
+info:
+	@echo "=== LLVM Static Link Configuration ==="
+	@echo "LLVM Version: $(shell $(LLVM_CONFIG) --version)"
+	@echo "LLVM Lib Dir: $(LLVM_LIB_DIR)"
+	@echo ""
+	@echo "Minimal LLVM libs count: $(words $(LLVM_LIBS_MINIMAL))"
+	@echo ""
+	@echo "Estimated sizes:"
+	@du -sh $(LLVM_LIB_DIR)/libLLVMOrcJIT.a 2>/dev/null || echo "  libLLVMOrcJIT.a: not found"
+	@du -sh $(LLVM_LIB_DIR)/libLLVMX86CodeGen.a 2>/dev/null || echo "  libLLVMX86CodeGen.a: not found"
+	@du -sh $(LLVM_LIB_DIR)/libLLVMCodeGen.a 2>/dev/null || echo "  libLLVMCodeGen.a: not found"
+	@du -sh $(LLVM_LIB_DIR)/libLLVMCore.a 2>/dev/null || echo "  libLLVMCore.a: not found"
+
+# Test 1: Minimal static link (just what we need)
+test_minimal_static: test_jit_minimal.cpp
+	@echo "=== Building minimal static binary ==="
+	@echo "Linking selected LLVM archives..."
+	$(CXX) $(CXXFLAGS) $(LDFLAGS_STATIC) $< \
+		$(LLVM_LIBS_MINIMAL) \
+		$(SYS_LIBS) \
+		-o $@ 2>&1 | head -50 || true
+	@if [ -f $@ ]; then \
+		echo ""; \
+		echo "✓ Minimal static link SUCCESS!"; \
+		echo "Binary size:"; \
+		ls -lh $@; \
+		file $@; \
+		echo ""; \
+		echo "Stripped size:"; \
+		strip $@ -o $@.stripped; \
+		ls -lh $@.stripped; \
+	else \
+		echo ""; \
+		echo "✗ Minimal static link FAILED"; \
+	fi
+
+# Test 2: Full static link (ALL LLVM archives)
+test_full_static: test_jit_minimal.cpp
+	@echo "=== Building FULL static binary ==="
+	@echo "Linking ALL LLVM archives with --whole-archive..."
+	@echo ""
+	$(CXX) $(CXXFLAGS) $(LDFLAGS_STATIC) $< \
+		-Wl,--whole-archive \
+		$(LLVM_LIB_DIR)/libLLVM*.a \
+		-Wl,--no-whole-archive \
+		$(SYS_LIBS) \
+		-o $@ 2>&1 | head -100 || true
+	@if [ -f $@ ]; then \
+		echo ""; \
+		echo "✓ FULL static link SUCCESS!"; \
+		echo "Binary size:"; \
+		ls -lh $@; \
+		du -h $@; \
+		file $@; \
+		echo ""; \
+		echo "Stripped size:"; \
+		strip $@ -o $@.stripped; \
+		ls -lh $@.stripped; \
+		du -h $@.stripped; \
+	else \
+		echo ""; \
+		echo "✗ FULL static link FAILED (expected - may need custom LLVM build)"; \
+	fi
+
+# Run the static binary
+run: test_full_static
+	@echo "=== Running full static binary ==="
+	./test_full_static
+
+clean:
+	rm -f test_minimal_static test_minimal_static.stripped
+	rm -f test_full_static test_full_static.stripped
+
+.PHONY: all clean info test-minimal test-full run
