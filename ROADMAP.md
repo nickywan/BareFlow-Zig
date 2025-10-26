@@ -1,8 +1,8 @@
 # BareFlow - Project Roadmap
 
-**Last Updated**: 2025-10-26 (Post-Session 28)
-**Architecture**: Self-Optimizing Unikernel with "Grow to Shrink" Strategy
-**Current Phase**: Phase 4 - Bare-Metal JIT Integration (Sessions 23-28 Complete - Testing Phase)
+**Last Updated**: 2025-10-26 (Post-Session 28 - **64-bit Migration**)
+**Architecture**: Self-Optimizing Unikernel with "Grow to Shrink" Strategy (x86-64)
+**Current Phase**: Phase 4 - Bare-Metal JIT Integration (Sessions 23-28 Complete - 64-bit Migration)
 
 ---
 
@@ -365,10 +365,16 @@ Flexibility: Re-enable JIT on new hardware
 **Rationale**: Validate entire strategy before bare-metal complexity
 **Result**: End-to-end validation successful, 6000× size reduction proven
 
-### Next Decision Point
-**Question**: Custom LLVM build vs. Alternative JIT (QBE, MIR, Cranelift)?
-**Factors**: Size, complexity, features, maintenance
-**Timeline**: Session 23-24
+### 2025-10-26 (Session 28)
+**Decision**: Migrate to 64-bit (x86-64) architecture
+**Rationale**:
+- 32-bit LLVM requires custom build (~3h)
+- 64-bit: native LLVM available, better performance (16 registers vs 8)
+- Memory usage <400 MB (well within 64-bit limits)
+- Pointer overhead negligible (~10% in final binary)
+**Result**: Simpler development, better JIT performance, native toolchain
+**Impact**: All future work in 64-bit (bootloader, kernel_lib, applications)
+**Document**: `docs/phase4/ARCH_DECISION_64BIT.md`
 
 ---
 

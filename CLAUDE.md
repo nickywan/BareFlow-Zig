@@ -10,6 +10,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **NEVER OPTIMIZE FOR INITIAL SIZE! THE SYSTEM MUST BE LARGE AT START!**
 
+### ⚡ ARCHITECTURE CHANGE (Session 28): 64-bit Migration
+
+**BareFlow is now x86-64 (64-bit) architecture!**
+
+- ✅ All code compiled for x86-64 long mode
+- ✅ LLVM native 64-bit (libLLVM-18.so)
+- ✅ Better JIT performance (16 registers)
+- ✅ No `-m32` flags anymore!
+
+**Rationale**: See `docs/phase4/ARCH_DECISION_64BIT.md`
+
 ```
 "On s'en fiche de la taille initiale!"
 
@@ -243,19 +254,26 @@ BareFlow-LLVM/
 ### Bare-Metal Limitations
 - **No standard library**: All functions in kernel_lib/
 - **No C++ exceptions**: Compile with `-fno-exceptions`
-- **32-bit only**: All code with `-m32`
-- **No floating point**: Use `-mno-sse -mno-mmx`
+- **64-bit x86-64**: All code compiled for x86-64 (long mode)
+- **No standard runtime**: Custom malloc_llvm, cpp_runtime
 
-### Memory Layout
-- **Bootloader**: 0x7C00 (Stage 1), 0x7E00 (Stage 2)
-- **Kernel**: 0x10000 (64KB offset - safe from BIOS)
-- **Stack**: 0x90000 (grows down)
-- **Heap**: 0x100000 (256KB for malloc)
+### Memory Layout (64-bit)
+- **Bootloader**: 0x7C00 (Stage 1), 0x7E00 (Stage 2) OR Multiboot2/GRUB
+- **Kernel**: Higher-half (0xFFFFFFFF80000000+) OR identity mapped
+- **Stack**: 8MB (64-bit requires larger stack)
+- **Heap**: 200MB (malloc_llvm for LLVM + TinyLlama)
 
-### Boot Process
-1. **Stage 1** (512B): Load Stage 2 from sectors 1-8
-2. **Stage 2** (4KB): Enable A20, setup GDT, load kernel
-3. **Kernel**: Verify FLUD signature (0x464C5544)
+### Boot Process (64-bit)
+**Option A - Multiboot2/GRUB** (Recommended):
+1. **GRUB**: Loads kernel in 64-bit long mode
+2. **Kernel**: Entry point receives Multiboot2 info
+3. **Init**: Setup stack, heap, serial I/O
+4. **Main**: Call main()
+
+**Option B - Custom Bootloader**:
+1. **Stage 1** (512B): Load Stage 2
+2. **Stage 2**: Enable A20, setup page tables, enter long mode
+3. **Kernel**: Load at higher-half or identity mapped
 4. **Entry**: Setup stack, call main()
 
 ---

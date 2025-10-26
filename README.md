@@ -1,6 +1,6 @@
 # BareFlow - Hybrid Self-Optimizing Unikernel
 
-**"Grow to Shrink" - 68000-style Self-Tuning Program**
+**"Grow to Shrink" - 68000-style Self-Tuning Program** (x86-64)
 
 > "Le kernel n'est plus qu'une bibliothèque d'accès au processeur, ce n'est pas un kernel
 > (un cœur) mais juste un profiler qui aide le programme à fonctionner du mieux possible."
@@ -40,13 +40,23 @@ Une application qui s'auto-profile, se recompile à chaud et s'optimise en temps
 - Profiling cycle-accurate (rdtsc)
 - Métriques AOT baseline documentées
 
-⚠️ **Phase 3 EN COURS**: Hybrid Self-Optimizing Runtime
-- Phase 3.1 ✅: LLVM JIT verification (userspace tests)
-- Phase 3.2 ⚠️: Full static link (60MB with LLVM + LLVM-libc)
-- Phase 3.3: LLVM Interpreter + profiler
-- Phase 3.4: Tiered JIT (O0 → O3)
-- Phase 3.5: Dead code elimination (60MB → 10MB)
-- Phase 3.6: Native export (10MB → 2-5MB)
+✅ **Phase 3 COMPLÈTE**: Hybrid Self-Optimizing Runtime (Userspace Validation)
+- Phase 3.1 ✅: LLVM JIT verification (LLVM 18.1.8)
+- Phase 3.2 ✅: Static linking research (hybrid approach confirmed)
+- Phase 3.3 ✅: LLVM Interpreter validation (383× speedup Interpreter→JIT)
+- Phase 3.4 ✅: Tiered JIT (O0→O3 automatic, 1.17× vs AOT)
+- Phase 3.5 ✅: Dead code analysis (99.83% unused in LLVM)
+- Phase 3.6 ✅: Native export (118 MB → 20 KB, 6000× reduction!)
+
+⚠️ **Phase 4 EN COURS**: Bare-Metal JIT Integration (x86-64)
+- Session 23 ✅: LLVM 18 validation (545 MB full installation)
+- Session 24 ✅: C++ runtime (12 KB bare-metal C++ support)
+- Session 25 ✅: Enhanced allocator (200 MB heap, free-list)
+- Session 26 ✅: Bare-metal integration (kernel_lib_llvm.a 23 KB)
+- Session 27 ✅: Strategy & analysis (32-bit vs 64-bit)
+- Session 28 ✅: Enhanced LLVM tests (1.7× speedup O0→O1)
+- **DECISION**: Migration to x86-64 (better JIT, native LLVM)
+- Session 29-30: QEMU 64-bit boot, LLVM integration, documentation
 
 ---
 
@@ -118,31 +128,56 @@ BareFlow-LLVM/
 ├── boot/
 │   ├── stage1.asm          # MBR bootloader
 │   └── stage2.asm          # Extended bootloader
-├── kernel_lib/             # ← NEW: Runtime library
-│   ├── io/
+├── kernel_lib/             # Runtime library (C + C++)
+│   ├── io/                 # I/O drivers
 │   │   ├── vga.{h,c}       # VGA text mode
 │   │   ├── serial.{h,c}    # Serial port
 │   │   └── keyboard.{h,c}  # PS/2 keyboard
-│   ├── memory/
-│   │   ├── malloc.{h,c}    # Memory allocator
+│   ├── memory/             # Memory management
+│   │   ├── malloc.{h,c}    # Simple bump allocator (256 KB)
+│   │   ├── malloc_llvm.c   # ← NEW: Free-list allocator (200 MB)
 │   │   └── string.{h,c}    # String functions
-│   ├── cpu/
-│   │   └── features.{h,c}  # CPU features (rdtsc, cpuid)
-│   ├── jit/
-│   │   ├── profile.{h,c}   # Profiling system
-│   │   ├── optimize.{h,c}  # Optimization logic
-│   │   └── adaptive.{h,c}  # Adaptive JIT
+│   ├── cpp_runtime/        # ← NEW: Bare-metal C++ runtime (12 KB)
+│   │   ├── new.cpp         # operator new/delete
+│   │   ├── exception.cpp   # Exception stubs (-fno-exceptions)
+│   │   ├── atexit.cpp      # Static initialization guards
+│   │   ├── syscall_stubs.cpp # System call stubs for LLVM
+│   │   └── Makefile        # Build cpp_runtime.a
+│   ├── cpu/                # CPU features
+│   │   └── features.{h,c}  # rdtsc, cpuid, PIC, IDT
+│   ├── jit/                # JIT profiling
+│   │   └── profile.{h,c}   # Cycle-accurate profiling
 │   ├── runtime.h           # Public API (I/O + Memory + CPU)
 │   ├── jit_runtime.h       # Public API (JIT)
-│   └── Makefile.lib        # Build kernel_lib.a
-├── tinyllama/              # ← NEW: Unikernel app (Phase 1-2)
-│   ├── entry.asm           # Entry point avec signature FLUD
+│   └── Makefile            # Build kernel_lib.a (15 KB)
+├── tinyllama/              # Unikernel application
+│   ├── entry.asm           # Entry point with FLUD signature
 │   ├── main.c              # Demo profiling (fib, sum, primes)
 │   ├── linker.ld           # Linker script (0x10000)
 │   └── Makefile            # Build tinyllama_bare.bin + .img
-└── kernel/                 # ← OLD: Monolithic kernel (archived)
-    ├── jit_llvm18.cpp      # TODO: Port vers kernel_lib/jit/
-    └── ...
+├── tests/                  # Validation tests
+│   ├── phase3/             # Phase 3 userspace validation (17 tests)
+│   │   ├── test_llvm_interpreter.cpp   # 383× speedup validation
+│   │   ├── test_tiered_jit.cpp         # O0→O3 tiered compilation
+│   │   └── test_native_export.cpp      # 6000× size reduction
+│   └── phase4/             # ← NEW: Phase 4 bare-metal prep
+│       ├── test_cpp_runtime.cpp        # C++ runtime validation
+│       ├── test_malloc_llvm.cpp        # Free-list allocator tests
+│       └── test_llvm_init.cpp          # LLVM initialization test
+├── docs/                   # Documentation
+│   ├── phase3/             # Phase 3 results
+│   │   ├── PHASE3_3_RESULTS.md         # 399× speedup proof
+│   │   ├── PHASE3_4_TIERED_JIT.md      # Tiered compilation
+│   │   ├── PHASE3_5_DCE_RESULTS.md     # 99.83% dead code
+│   │   └── PHASE3_6_NATIVE_EXPORT.md   # 6000× reduction
+│   └── phase4/             # ← NEW: Phase 4 documentation
+│       ├── PHASE4_BAREMETAL_REQUIREMENTS.md
+│       ├── SESSION_23_SUMMARY.md       # LLVM validation
+│       ├── SESSION_24_SUMMARY.md       # C++ runtime
+│       └── SESSION_25_SUMMARY.md       # (en cours)
+├── archive/                # Archived code
+│   └── kernel/             # Old monolithic kernel
+└── README.md               # This file
 ```
 
 ---
