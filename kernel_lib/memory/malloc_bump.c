@@ -19,7 +19,7 @@
 #ifdef HEAP_SIZE_SMALL
     #define HEAP_SIZE (256 * 1024)          // 256 KB for QEMU kernel
 #elif defined(BARE_METAL)
-    #define HEAP_SIZE (32 * 1024 * 1024)    // 32 MB for bare-metal (safe for .bss)
+    #define HEAP_SIZE (64 * 1024 * 1024)    // 64 MB for bare-metal
 #else
     #define HEAP_SIZE (200 * 1024 * 1024)   // 200 MB for userspace
 #endif

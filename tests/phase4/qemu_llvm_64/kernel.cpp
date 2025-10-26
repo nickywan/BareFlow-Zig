@@ -23,7 +23,7 @@ extern "C" {
     void terminal_putchar(char c);
     void terminal_writestring(const char* str);
 
-    // Memory (malloc - currently broken)
+    // Memory
     void* malloc(unsigned long size);
     void free(void* ptr);
     unsigned long malloc_get_usage();
@@ -57,7 +57,7 @@ extern "C" void kernel_main() {
     println("");
     println("========================================");
     println("  BareFlow QEMU x86-64 Kernel");
-    println("  Session 33 - 32 MB Heap Test");
+    println("  Session 34 - Model Weight Loading");
     println("========================================");
     println("");
 
@@ -72,23 +72,13 @@ extern "C" void kernel_main() {
     println("  Page tables setup: PML4 -> PDPT -> PD");
 
     println("");
-    println("[Test 3] malloc (bump allocator - 32 MB heap):");
-    println("  Heap size: 32 MB");
-
-    // Small allocation test
-    println("  Testing malloc(1024)...");
+    println("[Test 3] malloc (bump allocator - 64 MB heap):");
     void* ptr1 = malloc(1024);
-    println("  malloc() returned");
     if (ptr1) {
-        println("  malloc(1024) -> SUCCESS!");
+        println("  malloc(1024) -> SUCCESS");
     } else {
-        println("  malloc(1024) -> FAIL");
+        println("  malloc(1024) -> FAILED");
     }
-    println("  Test 3 complete");
-
-    println("");
-    println("[Test 4] Skipping large allocation test");
-    println("  (Saving heap space for model loading)");
 
     println("");
     println("[Test 5] 64-bit kernel:");
@@ -97,34 +87,30 @@ extern "C" void kernel_main() {
     println("  kernel_lib_llvm.a linked (28 KB)");
 
     println("");
-    println("[Test 6] TinyLlama Model Loading:");
-
-    // Show estimated model size
-    println("  Estimated model size (INT8): ~150 MB (FULL model)");
-
-    // Create model
-    println("  Creating model structure...");
+    println("[Test 4] TinyLlama Model Loading:");
     TinyLlamaModel* model = tinyllama_create_model();
 
     if (model) {
-        println("  Model creation SUCCESS!");
+        println("  Model structure created");
 
         // Load dummy weights
-        println("  Loading weights...");
         if (tinyllama_load_weights(model) == 0) {
-            println("  Weights loaded SUCCESS!");
+            println("  Weights loaded");
         } else {
-            println("  Weights loading FAILED!");
+            println("  ERROR: Weight loading failed");
         }
 
-        // Show memory usage after model load
-        println("  Heap usage after model: ~25 MB");
+        // Show memory usage
+        unsigned long usage = malloc_get_usage();
+        serial_puts("  Heap usage: ");
+        serial_put_uint(usage / (1024 * 1024));
+        serial_puts(" MB\n");
 
         // Free model
         tinyllama_free_model(model);
-        println("  Model freed.");
+        println("  Model freed");
     } else {
-        println("  Model creation FAILED!");
+        println("  ERROR: Model creation failed");
     }
 
     println("");

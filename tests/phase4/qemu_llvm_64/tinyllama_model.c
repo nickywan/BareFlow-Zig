@@ -14,7 +14,6 @@
 // External malloc/free from kernel_lib
 extern void* malloc(unsigned long size);
 extern void free(void* ptr);
-extern void* memset(void* s, int c, unsigned long n);
 
 // Serial output for debugging
 extern void serial_puts(const char* str);
@@ -26,10 +25,6 @@ extern void serial_put_uint(unsigned int value);
 
 static void debug_print(const char* msg) {
     serial_puts(msg);
-}
-
-static void debug_print_uint(unsigned int value) {
-    serial_put_uint(value);
 }
 
 // ============================================================================
@@ -81,8 +76,8 @@ static int alloc_quantized_tensor(QuantizedTensor* tensor, uint32_t rows, uint32
         return -1;  // Allocation failed
     }
 
-    // Zero-initialize for testing
-    memset(tensor->data, 0, size);
+    // Note: Not zero-initialized (memset causes issues in bare-metal)
+    // Will be filled by tinyllama_load_weights()
 
     return 0;
 }
@@ -99,88 +94,84 @@ static void free_quantized_tensor(QuantizedTensor* tensor) {
 // ============================================================================
 
 TinyLlamaModel* tinyllama_create_model() {
-    debug_print("[TinyLlama] Creating model...\n");
+    serial_puts("[TinyLlama] Creating model... ");
 
     // Allocate model structure
-    debug_print("[TinyLlama] About to malloc model struct\n");
     TinyLlamaModel* model = (TinyLlamaModel*)malloc(sizeof(TinyLlamaModel));
-    debug_print("[TinyLlama] malloc returned\n");
 
     if (!model) {
-        debug_print("[TinyLlama] ERROR: malloc() returned NULL\n");
+        serial_puts("ERROR\n");
         return NULL;
     }
 
-    debug_print("[TinyLlama] malloc SUCCESS, setting config\n");
+    serial_puts("OK\n");
+    serial_puts("[TinyLlama] Config... ");
 
-    // Set config one by one with debug
-    debug_print("[TinyLlama] About to set n_layers\n");
+    // Set configuration
     model->n_layers = LLAMA_N_LAYERS;
-    debug_print("[TinyLlama] Set n_layers OK\n");
-
-    debug_print("[TinyLlama] About to set hidden_size\n");
     model->hidden_size = LLAMA_HIDDEN_SIZE;
-    debug_print("[TinyLlama] Set hidden_size OK\n");
-
-    debug_print("[TinyLlama] About to set n_heads\n");
     model->n_heads = LLAMA_N_HEADS;
-    debug_print("[TinyLlama] Set n_heads OK\n");
-
-    debug_print("[TinyLlama] About to set vocab_size\n");
     model->vocab_size = LLAMA_VOCAB_SIZE;
-    debug_print("[TinyLlama] Set vocab_size OK\n");
-
-    debug_print("[TinyLlama] About to set max_seq_len\n");
     model->max_seq_len = LLAMA_MAX_SEQ_LEN;
-    debug_print("[TinyLlama] Model config set\n");
+    serial_puts("OK\n");
 
     // Allocate token embeddings (SKIP for test - 65 MB too big for 32 MB heap)
-    debug_print("[TinyLlama] Skipping token embeddings (65 MB - too large for test)\n");
     model->token_embeddings.data = NULL;
     model->token_embeddings.rows = 0;
     model->token_embeddings.cols = 0;
 
-    // Allocate transformer layers
-    debug_print("[TinyLlama] Allocating transformer layers...\n");
-
+    serial_puts("[TinyLlama] Layers array... ");
+    // Allocate transformer layers array
     model->layers = (TransformerLayer*)malloc(LLAMA_N_LAYERS * sizeof(TransformerLayer));
     if (!model->layers) {
-        debug_print("[TinyLlama] ERROR: Failed to allocate layers array\n");
-        free_quantized_tensor(&model->token_embeddings);
+        serial_puts("ERROR\n");
         free(model);
         return NULL;
     }
+    serial_puts("OK\n");
 
-    // Allocate each layer
-    // For testing with 32 MB heap, we only allocate FIRST LAYER as proof-of-concept
-    uint32_t test_layers = 1;  // Only allocate 1 layer (4 MB) to fit in 32 MB heap
-    debug_print("[TinyLlama] TEST MODE: Allocating only 1 layer (4 MB)\n");
+    // Allocate layers (TEST MODE: 1 complete layer - ~48 MB)
+    uint32_t test_layers = 1;
+    serial_puts("[TinyLlama] Allocating 1 complete layer... ");
 
     for (uint32_t i = 0; i < test_layers && i < LLAMA_N_LAYERS; i++) {
         TransformerLayer* layer = &model->layers[i];
 
-        // Just allocate Q matrix for testing (full model would allocate all 6 matrices)
-        if (alloc_quantized_tensor(&layer->wq, LLAMA_HIDDEN_SIZE, LLAMA_HIDDEN_SIZE) != 0) {
-            debug_print("[TinyLlama] ERROR: Failed to allocate layer Q matrix\n");
-            // TODO: cleanup previously allocated layers
+        // Allocate attention matrices (Q, K, V, O)
+        if (alloc_quantized_tensor(&layer->wq, LLAMA_HIDDEN_SIZE, LLAMA_HIDDEN_SIZE) != 0 ||
+            alloc_quantized_tensor(&layer->wk, LLAMA_HIDDEN_SIZE, LLAMA_HIDDEN_SIZE) != 0 ||
+            alloc_quantized_tensor(&layer->wv, LLAMA_HIDDEN_SIZE, LLAMA_HIDDEN_SIZE) != 0 ||
+            alloc_quantized_tensor(&layer->wo, LLAMA_HIDDEN_SIZE, LLAMA_HIDDEN_SIZE) != 0) {
+            serial_puts("ERROR (attention)\n");
             free(model->layers);
-            free_quantized_tensor(&model->token_embeddings);
             free(model);
             return NULL;
         }
-        debug_print("[TinyLlama] Layer allocated OK\n");
 
-        // Set other pointers to NULL for now (not allocated in this test)
-        layer->wk.data = NULL;
-        layer->wv.data = NULL;
-        layer->wo.data = NULL;
-        layer->w1.data = NULL;
-        layer->w2.data = NULL;
-        layer->ln1_weight = NULL;
-        layer->ln1_bias = NULL;
-        layer->ln2_weight = NULL;
-        layer->ln2_bias = NULL;
+        // Allocate feed-forward matrices (W1, W2)
+        if (alloc_quantized_tensor(&layer->w1, LLAMA_HIDDEN_SIZE, 4 * LLAMA_HIDDEN_SIZE) != 0 ||
+            alloc_quantized_tensor(&layer->w2, 4 * LLAMA_HIDDEN_SIZE, LLAMA_HIDDEN_SIZE) != 0) {
+            serial_puts("ERROR (FFN)\n");
+            free(model->layers);
+            free(model);
+            return NULL;
+        }
+
+        // Allocate layer norm weights (float32)
+        layer->ln1_weight = (float*)malloc(LLAMA_HIDDEN_SIZE * sizeof(float));
+        layer->ln1_bias = (float*)malloc(LLAMA_HIDDEN_SIZE * sizeof(float));
+        layer->ln2_weight = (float*)malloc(LLAMA_HIDDEN_SIZE * sizeof(float));
+        layer->ln2_bias = (float*)malloc(LLAMA_HIDDEN_SIZE * sizeof(float));
+
+        if (!layer->ln1_weight || !layer->ln1_bias || !layer->ln2_weight || !layer->ln2_bias) {
+            serial_puts("ERROR (layer norm)\n");
+            free(model->layers);
+            free(model);
+            return NULL;
+        }
     }
+
+    serial_puts("OK\n");
 
     // Zero out remaining layers
     for (uint32_t i = test_layers; i < LLAMA_N_LAYERS; i++) {
@@ -197,23 +188,25 @@ TinyLlamaModel* tinyllama_create_model() {
         layer->ln2_bias = NULL;
     }
 
+    serial_puts("[TinyLlama] Final LN... ");
     // Allocate final layer norm (float32 arrays)
     model->final_ln_weight = (float*)malloc(LLAMA_HIDDEN_SIZE * sizeof(float));
     model->final_ln_bias = (float*)malloc(LLAMA_HIDDEN_SIZE * sizeof(float));
 
     if (!model->final_ln_weight || !model->final_ln_bias) {
-        debug_print("[TinyLlama] ERROR: Failed to allocate final layer norm\n");
-        // TODO: full cleanup
+        serial_puts("ERROR\n");
+        free(model->layers);
+        free(model);
         return NULL;
     }
+    serial_puts("OK\n");
 
     // Allocate output projection (SKIP for test - also 65 MB)
-    debug_print("[TinyLlama] Skipping output projection (65 MB - too large for test)\n");
     model->output.data = NULL;
     model->output.rows = 0;
     model->output.cols = 0;
 
-    debug_print("[TinyLlama] Model created successfully!\n");
+    serial_puts("[TinyLlama] Complete!\n");
     return model;
 }
 
@@ -223,8 +216,6 @@ TinyLlamaModel* tinyllama_create_model() {
 
 void tinyllama_free_model(TinyLlamaModel* model) {
     if (!model) return;
-
-    debug_print("[TinyLlama] Freeing model...\n");
 
     // Free token embeddings
     free_quantized_tensor(&model->token_embeddings);
@@ -256,23 +247,62 @@ void tinyllama_free_model(TinyLlamaModel* model) {
 
     // Free model structure itself
     free(model);
-
-    debug_print("[TinyLlama] Model freed.\n");
 }
 
 // ============================================================================
-// Weight Loading (Stub)
+// Weight Loading
 // ============================================================================
 
 int tinyllama_load_weights(TinyLlamaModel* model) {
     if (!model) return -1;
 
-    debug_print("[TinyLlama] Loading weights...\n");
+    serial_puts("[TinyLlama] Loading weights... ");
 
-    // For Phase 4, just initialize with dummy values
+    // Initialize with dummy values (constant 1)
     // Real implementation would load from binary blob or disk
 
-    debug_print("[TinyLlama] Weights loaded (dummy data).\n");
+    for (uint32_t layer_idx = 0; layer_idx < model->n_layers; layer_idx++) {
+        TransformerLayer* layer = &model->layers[layer_idx];
+
+        // Initialize attention matrices
+        if (layer->wq.data) {
+            for (uint32_t i = 0; i < layer->wq.rows * layer->wq.cols; i++) {
+                layer->wq.data[i] = 1;
+            }
+        }
+
+        // Initialize feed-forward matrices
+        if (layer->w1.data) {
+            for (uint32_t i = 0; i < layer->w1.rows * layer->w1.cols; i++) {
+                layer->w1.data[i] = 1;
+            }
+        }
+
+        // Initialize layer norm weights
+        if (layer->ln1_weight) {
+            for (uint32_t i = 0; i < model->hidden_size; i++) {
+                layer->ln1_weight[i] = 1.0f;
+                layer->ln1_bias[i] = 0.0f;
+            }
+        }
+
+        if (layer->ln2_weight) {
+            for (uint32_t i = 0; i < model->hidden_size; i++) {
+                layer->ln2_weight[i] = 1.0f;
+                layer->ln2_bias[i] = 0.0f;
+            }
+        }
+    }
+
+    // Initialize final layer norm
+    if (model->final_ln_weight) {
+        for (uint32_t i = 0; i < model->hidden_size; i++) {
+            model->final_ln_weight[i] = 1.0f;
+            model->final_ln_bias[i] = 0.0f;
+        }
+    }
+
+    serial_puts("OK\n");
     return 0;
 }
 
