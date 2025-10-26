@@ -16,7 +16,8 @@ AR = llvm-ar-18
 # C flags for bare-metal 64-bit
 # Note: HEAP_SIZE_SMALL = 256KB for QEMU kernel
 CFLAGS = -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
-         -fno-stack-protector -mno-red-zone -mcmodel=kernel -DBARE_METAL -DHEAP_SIZE_SMALL -DDEBUG_MALLOC
+         -fno-stack-protector -mno-red-zone -mcmodel=kernel -DBARE_METAL -DHEAP_SIZE_SMALL
+         # DEBUG_MALLOC disabled (causes infinite loop)
 
 # C++ flags for cpp_runtime 64-bit
 CXXFLAGS = -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
@@ -30,8 +31,8 @@ CXXFLAGS = -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
 # I/O drivers
 IO_SRCS = io/vga.c io/serial.c
 
-# Memory management (using LLVM allocator)
-MEM_SRCS = memory/malloc_llvm.c memory/string.c memory/compiler_rt.c
+# Memory management (using bump allocator for debugging)
+MEM_SRCS = memory/malloc_bump.c memory/string.c memory/compiler_rt.c
 
 # CPU drivers
 CPU_SRCS = cpu/pic.c cpu/idt.c

@@ -61,9 +61,10 @@ Une application qui s'auto-profile, se recompile à chaud et s'optimise en temps
 - **Result**: 64-bit runtime (kernel_lib_llvm.a 29 KB) + QEMU validation
 
 🚀 **Phase 5 EN COURS**: TinyLlama Model Integration
-- Session 31 ✅: Paging implementation (2 MB pages, 256 MB mapped)
-- **Result**: Paging working ✅, malloc still broken ⚠️
-- Session 32: malloc investigation (not paging-related)
+- Session 31 ✅: malloc Investigation (paging + bump allocator)
+- **Result**: Paging working ✅, bump allocator working ✅
+- **Finding**: Problem isolated to free-list in malloc_llvm.c
+- Session 32: Continue with bump allocator or fix malloc_llvm.c
 - Session 33: Model loading (TinyLlama weights ~60MB)
 - Session 34-36: Inference optimization (matrix multiply, vectorization)
 - Session 37-39: Self-optimization (JIT hot layers, convergence)
