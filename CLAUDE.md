@@ -97,7 +97,16 @@ Boot 1000:  [2-5MB]     Pure native export
 
 **Critical Reference Documents** (READ BEFORE CONTINUING):
 
-1. **`docs/phase4/QEMU_BOOT_ISSUES_REFERENCE.md`** ⚠️ **CRITICAL**
+1. **`docs/troubleshooting/MALLOC_BARE_METAL.md`** 🔴 **CRITICAL - READ FIRST**
+   - Complete malloc troubleshooting guide for bare-metal
+   - Created Session 36 after extensive debugging
+   - **Root cause of "return crash" bug (wasn't a return crash!)**
+   - **NEVER use fixed addresses for heap - ALWAYS use static .bss**
+   - Contains: Fixed vs .bss heap, debugging checklist, best practices
+   - Web research + real-world solutions
+   - **READ IMMEDIATELY when seeing mysterious crashes or malloc issues**
+
+1b. **`docs/phase4/QEMU_BOOT_ISSUES_REFERENCE.md`** ⚠️ **CRITICAL**
    - All known QEMU boot problems and solutions
    - Created Session 30
    - **ALWAYS read before implementing new features**
@@ -332,6 +341,29 @@ BareFlow-LLVM/
 - **No C++ exceptions**: Compile with `-fno-exceptions`
 - **64-bit x86-64**: All code compiled for x86-64 (long mode)
 - **No standard runtime**: Custom malloc_llvm, cpp_runtime
+
+### 🔴 CRITICAL: malloc Implementation Rules (Session 36)
+
+**⚠️ NEVER use fixed addresses for heap - ALWAYS use static .bss arrays!**
+
+```c
+// ❌ WRONG - Fixed address (may not be valid memory)
+#define HEAP_START 0x2100000
+static void* heap_ptr = (void*)HEAP_START;
+
+// ✅ CORRECT - Static .bss array (linker-managed)
+static uint8_t heap[64 * 1024 * 1024] __attribute__((aligned(16)));
+```
+
+**Why this is critical:**
+- Fixed addresses are NOT guaranteed to be valid/writable
+- Writes may "succeed" but reads return garbage (no segfault in Ring 0!)
+- Causes mysterious "crashes at end of function" (actually corrupt data)
+- See `docs/troubleshooting/MALLOC_BARE_METAL.md` for complete explanation
+
+**Reference implementations:**
+- ✅ `tests/phase4/qemu_llvm_64/malloc_simple.c` - Static .bss heap (64 MB)
+- ❌ `kernel_lib/memory/malloc_bump.c` - Fixed address (BROKEN, don't use)
 
 ### Memory Layout (64-bit)
 - **Bootloader**: 0x7C00 (Stage 1), 0x7E00 (Stage 2) OR Multiboot2/GRUB
