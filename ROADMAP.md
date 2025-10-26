@@ -221,11 +221,41 @@ Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 - Execution time: 0.027-0.046 ms
 - QEMU validation: All 4/4 tests passed
 
-### Session 29-30: Boot Simulation & Documentation
+### Session 29: QEMU x86-64 Boot & malloc Integration
+**Status**: ✅ COMPLETE
+
+**Goals**:
+- [x] Migrate kernel_lib to 64-bit
+- [x] Create Multiboot2 kernel for QEMU
+- [x] Boot in qemu-system-x86_64
+- [x] Document QEMU validation practice
+- [x] Integrate malloc_llvm (partial - triple fault identified)
+
+**Tasks**:
+1. ✅ Rebuild kernel_lib_llvm in 64-bit (29 KB)
+2. ✅ Create Multiboot2 boot entry (boot.S)
+3. ✅ Create 64-bit kernel (kernel.cpp)
+4. ✅ Build bootable ISO with GRUB
+5. ✅ Test in QEMU x86-64 - SUCCESS!
+6. ✅ Document QEMU validation in CLAUDE.md
+7. ⚠️  malloc() causes triple fault (known issue)
+
+**Results**:
+- Kernel boots successfully in QEMU x86-64
+- Serial I/O working
+- Kernel size: 13 KB + 1 MB BSS
+- kernel_lib_llvm: 29 KB (64-bit)
+- QEMU validation practice documented
+
+**Issue Identified**:
+- malloc() triple fault (BSS initialization or paging issue)
+- Solution deferred to Session 30 or Phase 5
+
+### Session 30: Phase 4 Finalization & Documentation
 **Status**: 📝 NEXT
 
 **Goals**:
-- [ ] Boot simulation in userspace
+- [ ] Resolve malloc issue OR document as known limitation
 - [ ] Complete Phase 4 documentation
 - [ ] Prepare for Phase 5 (TinyLlama)
 
@@ -317,7 +347,7 @@ Boot 500+:   [2-5MB]    Pure native export      → LLVM removed, appliance mode
 |-------|----------|----------|---------|
 | **Phase 1-2** (AOT Baseline) | 17-20 | ✅ Complete | Unikernel 28KB working |
 | **Phase 3** (Userspace JIT) | 21-22 | ✅ Complete | 399× speedup validated |
-| **Phase 4** (Bare-Metal JIT) | 23-30 | 2-3 weeks | 🚀 **CURRENT** (6/8 sessions) |
+| **Phase 4** (Bare-Metal JIT) | 23-30 | 2-3 weeks | 🚀 **CURRENT** (7/8 sessions - 88%) |
 | **Phase 5** (TinyLlama) | 31-39 | 3-4 weeks | 📝 Planned |
 | **Phase 6** (Production) | 40-50 | 4-6 weeks | 🔮 Future |
 
