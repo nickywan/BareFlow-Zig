@@ -457,60 +457,27 @@ void tinyllama_free_model(TinyLlamaModel* model) {
 }
 
 // ============================================================================
-// Weight Loading (Stub - simple implementation)
+// Weight Loading
 // ============================================================================
+
+// Forward declaration from tinyllama_weights.c
+extern int init_model_weights_dummy(TinyLlamaModel* model);
 
 int tinyllama_load_weights(TinyLlamaModel* model) {
     if (!model) return -1;
 
     serial_puts("[TinyLlama] Loading weights... ");
 
-    // Initialize with dummy values (constant 1)
-    // Real implementation would load from binary blob or disk
+    // Use new weight initialization system with PRNG
+    int result = init_model_weights_dummy(model);
 
-    for (uint32_t layer_idx = 0; layer_idx < model->n_layers; layer_idx++) {
-        TransformerLayer* layer = &model->layers[layer_idx];
-
-        // Initialize attention matrices
-        if (layer->wq.data) {
-            for (uint32_t i = 0; i < layer->wq.rows * layer->wq.cols; i++) {
-                layer->wq.data[i] = 1;
-            }
-        }
-
-        // Initialize feed-forward matrices
-        if (layer->w1.data) {
-            for (uint32_t i = 0; i < layer->w1.rows * layer->w1.cols; i++) {
-                layer->w1.data[i] = 1;
-            }
-        }
-
-        // Initialize layer norm weights
-        if (layer->ln1_weight) {
-            for (uint32_t i = 0; i < model->hidden_size; i++) {
-                layer->ln1_weight[i] = 1.0f;
-                layer->ln1_bias[i] = 0.0f;
-            }
-        }
-
-        if (layer->ln2_weight) {
-            for (uint32_t i = 0; i < model->hidden_size; i++) {
-                layer->ln2_weight[i] = 1.0f;
-                layer->ln2_bias[i] = 0.0f;
-            }
-        }
+    if (result == 0) {
+        serial_puts("OK\n");
+    } else {
+        serial_puts("FAILED\n");
     }
 
-    // Initialize final layer norm
-    if (model->final_ln_weight) {
-        for (uint32_t i = 0; i < model->hidden_size; i++) {
-            model->final_ln_weight[i] = 1.0f;
-            model->final_ln_bias[i] = 0.0f;
-        }
-    }
-
-    serial_puts("OK\n");
-    return 0;
+    return result;
 }
 
 // ============================================================================

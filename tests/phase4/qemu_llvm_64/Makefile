@@ -80,9 +80,16 @@ tinyllama_inference.o: tinyllama_inference.c tinyllama_inference.h tinyllama_mod
 	          -fcf-protection=none \
 	          -I../../../kernel_lib -c $< -o $@
 
-$(KERNEL): boot.o kernel.o tinyllama_model.o tinyllama_inference.o malloc_simple.o serial.o
+tinyllama_weights.o: tinyllama_weights.c tinyllama_weights.h tinyllama_model.h
+	@echo "  [CC]  $< (weight loading - O0)"
+	@clang-18 -target x86_64-unknown-none -ffreestanding -nostdlib -fno-pie -O0 -Wall -Wextra \
+	          -fno-stack-protector -mno-red-zone -mcmodel=kernel \
+	          -fcf-protection=none \
+	          -I../../../kernel_lib -c $< -o $@
+
+$(KERNEL): boot.o kernel.o tinyllama_model.o tinyllama_inference.o tinyllama_weights.o malloc_simple.o serial.o
 	@echo "  [LD]  $@ (standalone 64-bit, no kernel_lib)"
-	@$(LD) $(LDFLAGS) boot.o kernel.o tinyllama_model.o tinyllama_inference.o malloc_simple.o serial.o -o $@
+	@$(LD) $(LDFLAGS) boot.o kernel.o tinyllama_model.o tinyllama_inference.o tinyllama_weights.o malloc_simple.o serial.o -o $@
 	@echo "  [INFO] Kernel size: $$(stat -c%s $@) bytes"
 
 iso: $(ISO)
