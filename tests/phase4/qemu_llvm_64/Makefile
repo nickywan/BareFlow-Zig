@@ -46,13 +46,17 @@ boot.o: boot.S
 	@echo "  [AS]  $<"
 	@$(AS) $(ASFLAGS) -c $< -o $@
 
-kernel.o: kernel.cpp tinyllama_model.h
-	@echo "  [CXX] $<"
-	@$(CC) $(CXXFLAGS) -c $< -o $@
+kernel.o: kernel.c tinyllama_model.h
+	@echo "  [CC]  $< (pure C kernel - O0 only working option)"
+	@clang-18 -target x86_64-unknown-none -ffreestanding -nostdlib -fno-pie -O0 -Wall -Wextra \
+	          -fno-stack-protector -mno-red-zone -mcmodel=kernel \
+	          -fcf-protection=none \
+	          -I../../../kernel_lib -c $< -o $@
 
 tinyllama_model.o: tinyllama_model.c tinyllama_model.h
-	@echo "  [CC]  $<"
-	@clang-18 -target x86_64-unknown-none -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+	@echo "  [CC]  $< (O0 - O1/O2 break malloc)"
+	@clang-18 -target x86_64-unknown-none -ffreestanding -nostdlib -fno-pie -O0 \
+	          -Wall -Wextra \
 	          -fno-stack-protector -mno-red-zone -mcmodel=kernel \
 	          -fcf-protection=none \
 	          -I../../../kernel_lib -c $< -o $@

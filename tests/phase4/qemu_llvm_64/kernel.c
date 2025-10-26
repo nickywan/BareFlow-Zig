@@ -10,31 +10,30 @@
  * This proves LLVM works in real bare-metal x86-64!
  */
 
+// Bare-metal definitions
+#define NULL ((void*)0)
+
 // Kernel_lib functions
-extern "C" {
-    // Serial I/O
-    void serial_init();
-    void serial_putc(char c);
-    void serial_puts(const char* str);
-    void serial_put_uint(unsigned int n);
+// Serial I/O
+void serial_init();
+void serial_putc(char c);
+void serial_puts(const char* str);
+void serial_put_uint(unsigned int n);
 
-    // VGA I/O (terminal_* functions)
-    void terminal_initialize();
-    void terminal_putchar(char c);
-    void terminal_writestring(const char* str);
+// VGA I/O (terminal_* functions)
+void terminal_initialize();
+void terminal_putchar(char c);
+void terminal_writestring(const char* str);
 
-    // Memory
-    void* malloc(unsigned long size);
-    void free(void* ptr);
-    unsigned long malloc_get_usage();
-    unsigned long malloc_get_peak();
-    unsigned long malloc_get_heap_size();
-}
+// Memory
+void* malloc(unsigned long size);
+void free(void* ptr);
+unsigned long malloc_get_usage();
+unsigned long malloc_get_peak();
+unsigned long malloc_get_heap_size();
 
 // TinyLlama model
-extern "C" {
 #include "tinyllama_model.h"
-}
 
 // Dual output helpers (VGA + Serial)
 static void println(const char* str) {
@@ -49,7 +48,7 @@ static void println(const char* str) {
 // Kernel Main
 // ============================================================================
 
-extern "C" void kernel_main() {
+void kernel_main() {
     // Initialize serial first (VGA causes issues)
     serial_init();
     // terminal_initialize();  // TODO: Fix VGA initialization
@@ -88,8 +87,18 @@ extern "C" void kernel_main() {
 
     println("");
     println("[Test 4] TinyLlama Model Loading:");
-    TinyLlamaModel* model = nullptr;
+    TinyLlamaModel* model = NULL;
     int result = tinyllama_create_model(&model);
+
+    // Debug: Show what we received
+    serial_puts("  [DEBUG] result = ");
+    if (result == 0) serial_puts("0");
+    else if (result == -1) serial_puts("-1");
+    else serial_puts("OTHER");
+    serial_puts(", model = ");
+    if (model == NULL) serial_puts("NULL");
+    else serial_puts("VALID");
+    serial_puts("\n");
 
     if (result == 0 && model) {
         println("  \u2705 Model created successfully");

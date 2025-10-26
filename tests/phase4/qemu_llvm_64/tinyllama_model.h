@@ -20,6 +20,10 @@
 #ifndef TINYLLAMA_MODEL_H
 #define TINYLLAMA_MODEL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // ============================================================================
 // Configuration
 // ============================================================================
@@ -161,5 +165,9 @@ uint64_t tinyllama_estimate_size();
  * Stub for Phase 4 - we'll implement basic inference later.
  */
 int tinyllama_forward(TinyLlamaModel* model, uint32_t* tokens, uint32_t n_tokens);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // TINYLLAMA_MODEL_H

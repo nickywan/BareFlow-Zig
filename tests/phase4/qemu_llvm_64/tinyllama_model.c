@@ -66,6 +66,7 @@ uint64_t tinyllama_estimate_size() {
 // ============================================================================
 
 static int alloc_quantized_tensor(QuantizedTensor* tensor, uint32_t rows, uint32_t cols) {
+    serial_puts("[alloc_qt:start]");
     tensor->rows = rows;
     tensor->cols = cols;
     tensor->scale = 0.01f;       // Default scale
@@ -73,15 +74,16 @@ static int alloc_quantized_tensor(QuantizedTensor* tensor, uint32_t rows, uint32
 
     // Allocate INT8 data
     uint64_t size = (uint64_t)rows * cols;
+    serial_puts("[pre_malloc]");
     tensor->data = (int8_t*)malloc(size);
+    serial_puts("[post_malloc]");
 
     if (!tensor->data) {
+        serial_puts("[FAIL]");
         return -1;  // Allocation failed
     }
 
-    // Note: Not zero-initialized (memset causes issues in bare-metal)
-    // Will be filled by tinyllama_load_weights()
-
+    serial_puts("[OK]");
     return 0;
 }
 
@@ -178,28 +180,64 @@ static int tinyllama_alloc_layers_array(TinyLlamaModel* model) {
 /**
  * Step 4: Allocate ONE complete layer (test mode)
  * Returns: 0 on success, -1 on failure
+ *
+ * NOTE: alloc_quantized_tensor() INLINED to avoid return value corruption bug
  */
 static int tinyllama_alloc_single_layer(TransformerLayer* layer, uint32_t hidden_size) {
     serial_puts("[TinyLlama] Allocating layer components... ");
 
-    // Attention matrices (Q, K, V, O)
-    if (alloc_quantized_tensor(&layer->wq, hidden_size, hidden_size) != 0) goto error;
+    // === Attention Q (INLINED) ===
+    layer->wq.rows = hidden_size;
+    layer->wq.cols = hidden_size;
+    layer->wq.scale = 0.01f;
+    layer->wq.zero_point = 0;
+    layer->wq.data = (int8_t*)malloc((uint64_t)hidden_size * hidden_size);
+    if (!layer->wq.data) goto error;
     serial_puts("Q ");
 
-    if (alloc_quantized_tensor(&layer->wk, hidden_size, hidden_size) != 0) goto error;
+    // === Attention K (INLINED) ===
+    layer->wk.rows = hidden_size;
+    layer->wk.cols = hidden_size;
+    layer->wk.scale = 0.01f;
+    layer->wk.zero_point = 0;
+    layer->wk.data = (int8_t*)malloc((uint64_t)hidden_size * hidden_size);
+    if (!layer->wk.data) goto error;
     serial_puts("K ");
 
-    if (alloc_quantized_tensor(&layer->wv, hidden_size, hidden_size) != 0) goto error;
+    // === Attention V (INLINED) ===
+    layer->wv.rows = hidden_size;
+    layer->wv.cols = hidden_size;
+    layer->wv.scale = 0.01f;
+    layer->wv.zero_point = 0;
+    layer->wv.data = (int8_t*)malloc((uint64_t)hidden_size * hidden_size);
+    if (!layer->wv.data) goto error;
     serial_puts("V ");
 
-    if (alloc_quantized_tensor(&layer->wo, hidden_size, hidden_size) != 0) goto error;
+    // === Attention O (INLINED) ===
+    layer->wo.rows = hidden_size;
+    layer->wo.cols = hidden_size;
+    layer->wo.scale = 0.01f;
+    layer->wo.zero_point = 0;
+    layer->wo.data = (int8_t*)malloc((uint64_t)hidden_size * hidden_size);
+    if (!layer->wo.data) goto error;
     serial_puts("O ");
 
-    // Feed-forward matrices (W1, W2)
-    if (alloc_quantized_tensor(&layer->w1, hidden_size, 4 * hidden_size) != 0) goto error;
+    // === FFN W1 (INLINED) ===
+    layer->w1.rows = hidden_size;
+    layer->w1.cols = 4 * hidden_size;
+    layer->w1.scale = 0.01f;
+    layer->w1.zero_point = 0;
+    layer->w1.data = (int8_t*)malloc((uint64_t)hidden_size * (4 * hidden_size));
+    if (!layer->w1.data) goto error;
     serial_puts("W1 ");
 
-    if (alloc_quantized_tensor(&layer->w2, 4 * hidden_size, hidden_size) != 0) goto error;
+    // === FFN W2 (INLINED) ===
+    layer->w2.rows = 4 * hidden_size;
+    layer->w2.cols = hidden_size;
+    layer->w2.scale = 0.01f;
+    layer->w2.zero_point = 0;
+    layer->w2.data = (int8_t*)malloc((uint64_t)(4 * hidden_size) * hidden_size);
+    if (!layer->w2.data) goto error;
     serial_puts("W2 ");
 
     // Layer norm weights (float32)
@@ -296,10 +334,87 @@ int tinyllama_create_model(TinyLlamaModel** out_model) {
         *out_model = NULL;
         return -1;
     }
-    serial_puts("OK\n");  // NO return after this!
+    serial_puts("OK\n");
 
-    serial_puts("=== Model created successfully! ===\n\n");
+    // Step 4: Allocate FIRST layer tensors (FULLY INLINED to avoid return crash)
+    serial_puts("[TinyLlama] Allocating layer components... ");
+    TransformerLayer* layer = &model->layers[0];
+
+    // === Attention Q (INLINED) ===
+    layer->wq.rows = model->hidden_size;
+    layer->wq.cols = model->hidden_size;
+    layer->wq.scale = 0.01f;
+    layer->wq.zero_point = 0;
+    layer->wq.data = (int8_t*)malloc((uint64_t)model->hidden_size * model->hidden_size);
+    if (!layer->wq.data) goto create_error;
+    serial_puts("Q ");
+
+    // === Attention K (INLINED) ===
+    layer->wk.rows = model->hidden_size;
+    layer->wk.cols = model->hidden_size;
+    layer->wk.scale = 0.01f;
+    layer->wk.zero_point = 0;
+    layer->wk.data = (int8_t*)malloc((uint64_t)model->hidden_size * model->hidden_size);
+    if (!layer->wk.data) goto create_error;
+    serial_puts("K ");
+
+    // === Attention V (INLINED) ===
+    layer->wv.rows = model->hidden_size;
+    layer->wv.cols = model->hidden_size;
+    layer->wv.scale = 0.01f;
+    layer->wv.zero_point = 0;
+    layer->wv.data = (int8_t*)malloc((uint64_t)model->hidden_size * model->hidden_size);
+    if (!layer->wv.data) goto create_error;
+    serial_puts("V ");
+
+    // === Attention O (INLINED) ===
+    layer->wo.rows = model->hidden_size;
+    layer->wo.cols = model->hidden_size;
+    layer->wo.scale = 0.01f;
+    layer->wo.zero_point = 0;
+    layer->wo.data = (int8_t*)malloc((uint64_t)model->hidden_size * model->hidden_size);
+    if (!layer->wo.data) goto create_error;
+    serial_puts("O ");
+
+    // === FFN W1 (INLINED) ===
+    layer->w1.rows = model->hidden_size;
+    layer->w1.cols = 4 * model->hidden_size;
+    layer->w1.scale = 0.01f;
+    layer->w1.zero_point = 0;
+    layer->w1.data = (int8_t*)malloc((uint64_t)model->hidden_size * (4 * model->hidden_size));
+    if (!layer->w1.data) goto create_error;
+    serial_puts("W1 ");
+
+    // === FFN W2 (INLINED) ===
+    layer->w2.rows = 4 * model->hidden_size;
+    layer->w2.cols = model->hidden_size;
+    layer->w2.scale = 0.01f;
+    layer->w2.zero_point = 0;
+    layer->w2.data = (int8_t*)malloc((uint64_t)(4 * model->hidden_size) * model->hidden_size);
+    if (!layer->w2.data) goto create_error;
+    serial_puts("W2 ");
+
+    // Layer norm weights (float32)
+    layer->ln1_weight = (float*)malloc(model->hidden_size * sizeof(float));
+    layer->ln1_bias = (float*)malloc(model->hidden_size * sizeof(float));
+    if (!layer->ln1_weight || !layer->ln1_bias) goto create_error;
+    serial_puts("LN1 ");
+
+    layer->ln2_weight = (float*)malloc(model->hidden_size * sizeof(float));
+    layer->ln2_bias = (float*)malloc(model->hidden_size * sizeof(float));
+    if (!layer->ln2_weight || !layer->ln2_bias) goto create_error;
+    serial_puts("LN2 OK\n");
+
+    serial_puts("=== Model created successfully! ===\n");
+    serial_puts("[C_FUNC] About to return 0\n\n");
     return 0;
+
+create_error:
+    serial_puts(" FAILED\n");
+    free(model->layers);
+    free(model);
+    *out_model = NULL;
+    return -1;
 }
 
 // ============================================================================
