@@ -1,0 +1,132 @@
+# Makefile.jit - Build JIT tests and interface with LLVM 18
+# Usage: make -f Makefile.jit
+
+# Compilers (use clang 18)
+CC = clang-18
+CXX = clang++-18
+LLVM_CONFIG = llvm-config-18
+
+# Check if llvm-config exists, fallback to llvm-config if not
+ifeq ($(shell which $(LLVM_CONFIG) 2>/dev/null),)
+    LLVM_CONFIG = llvm-config
+endif
+
+# LLVM flags (using shared libraries)
+LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags)
+LLVM_LDFLAGS = $(shell $(LLVM_CONFIG) --ldflags --link-shared)
+LLVM_LIBS = -lLLVM-18
+
+# Compiler flags
+CXXFLAGS = -std=c++17 -Wall -Wextra -g $(LLVM_CXXFLAGS)
+LDFLAGS = $(LLVM_LDFLAGS) $(LLVM_LIBS)
+
+# Directories
+KERNEL_DIR = kernel
+BUILD_DIR = bin
+LIBS_DIR = libs
+MINIMAL_SRC_DIR = $(LIBS_DIR)/minimal
+
+# Source files
+JIT_IMPL = $(KERNEL_DIR)/jit_llvm18.cpp
+TEST_BASIC = test_jit.cpp
+TEST_INTERFACE = test_jit_interface.cpp
+
+# Minimal library sources
+MINIMAL_SRCS = $(wildcard $(MINIMAL_SRC_DIR)/*.c)
+MINIMAL_BCS = $(MINIMAL_SRCS:$(MINIMAL_SRC_DIR)/%.c=$(BUILD_DIR)/%.bc)
+MINIMAL_LIB = $(LIBS_DIR)/minimal.bc
+
+# Output binaries
+TEST_BASIC_BIN = $(BUILD_DIR)/test_jit
+TEST_INTERFACE_BIN = $(BUILD_DIR)/test_jit_interface
+
+.PHONY: all clean test help info libs
+
+all: $(BUILD_DIR) libs $(TEST_BASIC_BIN) $(TEST_INTERFACE_BIN)
+	@echo ""
+	@echo "✓ Build complete!"
+	@echo "  - Basic test: $(TEST_BASIC_BIN)"
+	@echo "  - Interface test: $(TEST_INTERFACE_BIN)"
+
+$(BUILD_DIR):
+	@mkdir -p $(BUILD_DIR)
+
+# ============================================================================
+# MINIMAL LIBRARY (BITCODE)
+# ============================================================================
+
+# Build minimal library
+libs: $(MINIMAL_LIB)
+	@echo "✓ Minimal library ready: $(MINIMAL_LIB)"
+
+# Compile individual C files to LLVM bitcode
+$(BUILD_DIR)/%.bc: $(MINIMAL_SRC_DIR)/%.c | $(BUILD_DIR)
+	@echo "Compiling $< to bitcode..."
+	$(CC) -O2 -emit-llvm -c $< -o $@
+
+# Link all bitcode files into single library
+$(MINIMAL_LIB): $(MINIMAL_BCS)
+	@echo "Linking minimal library..."
+	llvm-link-18 $^ -o $@
+	@echo "✓ Created: $@"
+
+# ============================================================================
+# JIT TESTS
+# ============================================================================
+
+# Build basic JIT test (depends on minimal.bc)
+$(TEST_BASIC_BIN): $(TEST_BASIC) $(MINIMAL_LIB) | $(BUILD_DIR)
+	@echo "Building basic JIT test..."
+	$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
+	@echo "✓ Built: $@"
+
+# Build interface test (includes JIT implementation, depends on minimal.bc)
+$(TEST_INTERFACE_BIN): $(TEST_INTERFACE) $(JIT_IMPL) $(MINIMAL_LIB) | $(BUILD_DIR)
+	@echo "Building JIT interface test..."
+	$(CXX) $(CXXFLAGS) -I. $(TEST_INTERFACE) $(JIT_IMPL) -o $@ $(LDFLAGS)
+	@echo "✓ Built: $@"
+
+# Run basic test
+test-basic: $(TEST_BASIC_BIN)
+	@echo ""
+	@echo "=== Running basic JIT test ==="
+	@./$(TEST_BASIC_BIN)
+
+# Run interface test
+test-interface: $(TEST_INTERFACE_BIN)
+	@echo ""
+	@echo "=== Running interface JIT test ==="
+	@./$(TEST_INTERFACE_BIN)
+
+# Run all tests
+test: test-basic test-interface
+
+# Show configuration
+info:
+	@echo "=== BareFlow JIT Build Configuration ==="
+	@echo "CXX: $(CXX)"
+	@echo "LLVM Config: $(LLVM_CONFIG)"
+	@echo "LLVM Version: $(shell $(LLVM_CONFIG) --version)"
+	@echo "LLVM CXXFLAGS: $(LLVM_CXXFLAGS)"
+	@echo ""
+
+# Clean
+clean:
+	@echo "Cleaning JIT build files..."
+	rm -rf $(BUILD_DIR)
+	rm -f $(MINIMAL_LIB)
+	@echo "✓ Clean complete"
+
+# Help
+help:
+	@echo "BareFlow JIT Build System"
+	@echo ""
+	@echo "Targets:"
+	@echo "  all            - Build all tests (default)"
+	@echo "  libs           - Build minimal.bc library only"
+	@echo "  test-basic     - Build and run basic JIT test"
+	@echo "  test-interface - Build and run interface test"
+	@echo "  test           - Run all tests"
+	@echo "  info           - Show build configuration"
+	@echo "  clean          - Remove build files"
+	@echo "  help           - Show this help"

@@ -1,0 +1,308 @@
+#!/usr/bin/env python3
+"""
+Generate CPU profile metadata and optional Makefile include for host-tuned builds.
+
+The script collects:
+  - CPU model name, core count, cache sizes
+  - Feature flags (via lscpu or /proc/cpuinfo)
+  - Clang -march=native target cpu/features (if clang-18/clang available)
+
+Outputs:
+  * JSON profile (default: build/cpu_profile.json)
+  * Makefile include with -march / -mattr flags (default: kernel/auto_cpu_flags.mk)
+"""
+from __future__ import annotations
+
+import argparse
+import datetime
+import json
+import os
+import pathlib
+import re
+import socket
+import subprocess
+import sys
+from typing import Dict, List, Optional, Tuple
+
+
+def run_cmd(cmd: List[str]) -> Tuple[int, str, str]:
+    try:
+        proc = subprocess.run(
+            cmd,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        return proc.returncode, proc.stdout, proc.stderr
+    except FileNotFoundError:
+        return 127, "", ""
+
+
+def parse_lscpu() -> Dict[str, str]:
+    code, out, _ = run_cmd(["lscpu"])
+    if code != 0:
+        return {}
+    data = {}
+    for line in out.splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        data[key.strip().lower()] = value.strip()
+    return data
+
+
+def parse_proc_cpuinfo() -> Dict[str, str]:
+    path = pathlib.Path("/proc/cpuinfo")
+    if not path.exists():
+        return {}
+    data: Dict[str, str] = {}
+    with path.open() as fh:
+        for line in fh:
+            if not line.strip() or ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            data[key.strip().lower()] = value.strip()
+    return data
+
+
+def detect_qemu_environment() -> bool:
+    """Detect if we're running in QEMU (virtual environment)."""
+    # Check for QEMU in CPU model
+    procinfo = parse_proc_cpuinfo()
+    model = procinfo.get("model name", "").lower()
+    if "qemu" in model or "virtual" in model:
+        return True
+
+    # Check for virtualization flags
+    lscpu = parse_lscpu()
+    virt = lscpu.get("hypervisor vendor", "").lower()
+    if "qemu" in virt or "kvm" in virt:
+        return True
+
+    # Check /sys/devices/virtual/dmi/id/product_name
+    try:
+        product_path = pathlib.Path("/sys/devices/virtual/dmi/id/product_name")
+        if product_path.exists():
+            product = product_path.read_text().strip().lower()
+            if "qemu" in product or "bochs" in product or "virtual" in product:
+                return True
+    except (OSError, IOError):
+        pass
+
+    return False
+
+
+def gather_cpu_info() -> Dict[str, object]:
+    info = {}
+    lscpu = parse_lscpu()
+    procinfo = parse_proc_cpuinfo()
+
+    info["model"] = (
+        lscpu.get("model name")
+        or procinfo.get("model name")
+        or procinfo.get("processor")
+        or "unknown"
+    )
+
+    try:
+        cores = int(lscpu.get("cpu(s)", ""))
+    except (TypeError, ValueError):
+        cores = None
+    if cores is None:
+        try:
+            cores = int(procinfo.get("cpu(s)", ""))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            cores = None
+    info["cores"] = cores
+
+    flags_line = (
+        lscpu.get("flags")
+        or procinfo.get("flags")
+        or procinfo.get("features")
+        or ""
+    )
+    flags = sorted(set(flags_line.split()))
+    info["flags"] = flags
+
+    caches = {}
+    for key in ("l1d cache", "l1i cache", "l2 cache", "l3 cache"):
+        if key in lscpu:
+            caches[key.replace(" ", "_")] = lscpu[key]
+    info["caches"] = caches
+    return info
+
+
+def parse_clang_features() -> Dict[str, object]:
+    compilers = ["clang-18", "clang"]
+    compiler_path = None
+    for candidate in compilers:
+        code, _, _ = run_cmd([candidate, "--version"])
+        if code == 0:
+            compiler_path = candidate
+            break
+    if compiler_path is None:
+        return {"found": False}
+
+    # Ask clang what it would pass for -march=native
+    code, _, err = run_cmd(
+        [
+            compiler_path,
+            "-###",
+            "-E",
+            "-",
+            "-march=native",
+        ]
+    )
+    if code != 0:
+        return {"found": True, "error": "failed to query -march=native"}
+
+    target_cpu = None
+    mattr: List[str] = []
+    triple = None
+
+    target_cpu_match = re.search(r'"-target-cpu"\s+"([^"]+)"', err)
+    if target_cpu_match:
+        target_cpu = target_cpu_match.group(1)
+
+    triple_match = re.search(r'"-triple"\s+"([^"]+)"', err)
+    if triple_match:
+        triple = triple_match.group(1)
+
+    mattr_matches = re.findall(r'"-target-feature"\s+"([^"]+)"', err)
+    if mattr_matches:
+        # Keep deterministic order and unique features
+        seen = set()
+        for feat in mattr_matches:
+            if feat not in seen:
+                mattr.append(feat)
+                seen.add(feat)
+
+    return {
+        "found": True,
+        "compiler": compiler_path,
+        "target_triple": triple,
+        "target_cpu": target_cpu,
+        "target_features": mattr,
+    }
+
+
+def write_cpu_flags_mk(path: pathlib.Path, target_cpu: Optional[str], mattr: List[str], profile_tag: str) -> None:
+    lines = [
+        "# Auto-generated by tools/gen_cpu_profile.py",
+        "# Do not edit manually.",
+        "",
+        f"CPU_MARCH ?= {target_cpu or 'native'}",
+        "",
+        "CFLAGS_CPU := -march=$(CPU_MARCH)",
+        "CXXFLAGS_CPU := $(CFLAGS_CPU)",
+        "",
+        f"CPU_PROFILE_TAG := {profile_tag}",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def build_profile_tag(model: str, target_cpu: Optional[str], mattr: List[str], is_virtual: bool = False) -> str:
+    # For QEMU/virtual environments, use simple architecture-based tag
+    if is_virtual or target_cpu == "i686":
+        return "i686"
+
+    model_slug = re.sub(r"[^a-z0-9]+", "-", model.lower()).strip("-")
+    cpu = target_cpu or "native"
+    feats = "-".join(f.replace("+", "p").replace("-", "m") for f in mattr[:5])
+    components = [comp for comp in (cpu, feats) if comp]
+    suffix = "-".join(components) if components else "generic"
+    return f"{model_slug or 'cpu'}-{suffix}"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Generate CPU profile metadata")
+    parser.add_argument(
+        "--output",
+        "-o",
+        default="build/cpu_profile.json",
+        help="Path to JSON profile output (default: build/cpu_profile.json)",
+    )
+    parser.add_argument(
+        "--mk-output",
+        default="kernel/auto_cpu_flags.mk",
+        help="Path to Makefile include output (default: kernel/auto_cpu_flags.mk)",
+    )
+    parser.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print JSON output",
+    )
+    parser.add_argument(
+        "--force-i686",
+        action="store_true",
+        help="Force i686 for QEMU compatibility (32-bit bare-metal safe)",
+    )
+    parser.add_argument(
+        "--auto-detect-qemu",
+        action="store_true",
+        default=True,
+        help="Auto-detect QEMU and use i686 (default: enabled)",
+    )
+    args = parser.parse_args()
+
+    cpu_info = gather_cpu_info()
+    clang_info = parse_clang_features()
+
+    # Detect QEMU and override to i686 for 32-bit compatibility
+    is_qemu = detect_qemu_environment() if args.auto_detect_qemu else False
+    force_i686 = args.force_i686 or is_qemu
+
+    if force_i686:
+        print("⚠️  Detected QEMU/virtual environment or --force-i686")
+        print("→  Using i686 for maximum 32-bit compatibility")
+        print("→  Skylake/AVX instructions cause Invalid Opcode in QEMU")
+        # Override target_cpu to i686
+        if isinstance(clang_info, dict):
+            clang_info["target_cpu"] = "i686"
+            clang_info["target_features"] = []  # Clear advanced features
+
+    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    hostname = socket.gethostname()
+    profile_tag = build_profile_tag(
+        cpu_info.get("model", "cpu"),
+        clang_info.get("target_cpu") if isinstance(clang_info, dict) else None,
+        clang_info.get("target_features", []) if isinstance(clang_info, dict) else [],
+        is_virtual=force_i686  # Use simple tag for QEMU/i686
+    )
+
+    payload = {
+        "generated_at": timestamp,
+        "hostname": hostname,
+        "cpu": cpu_info,
+        "compiler": clang_info,
+        "profile_tag": profile_tag,
+    }
+
+    output_path = pathlib.Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2 if args.pretty else None, sort_keys=args.pretty)
+        fh.write("\n")
+
+    # Only write Makefile include if we have compiler info
+    target_cpu = None
+    mattr: List[str] = []
+    if isinstance(clang_info, dict) and clang_info.get("found"):
+        target_cpu = clang_info.get("target_cpu")
+        mattr = [
+            feat for feat in clang_info.get("target_features", []) if feat.startswith(("+", "-"))
+        ]
+    mk_path = pathlib.Path(args.mk_output)
+    write_cpu_flags_mk(mk_path, target_cpu, mattr, profile_tag)
+
+    print(f"Wrote CPU profile: {output_path}")
+    print(f"Wrote Makefile include: {mk_path}")
+    print(f"Detected profile tag: {profile_tag}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,151 @@
+# Makefile for TinyLlama LLVM Test
+#
+# Builds bare-metal test using kernel_lib_llvm.a (with malloc_llvm + cpp_runtime)
+#
+# Usage: make -f Makefile.llvm run
+
+# ============================================================================
+# TOOLCHAIN
+# ============================================================================
+
+CC = clang-18
+LD = ld
+ASM = nasm
+OBJCOPY = objcopy
+
+# Compiler flags for bare-metal 32-bit
+CFLAGS = -m32 -ffreestanding -nostdlib -fno-pie -O2 -Wall -Wextra \
+         -fno-stack-protector -mno-sse -I../kernel_lib
+
+# Assembler flags
+ASMFLAGS = -f elf32
+
+# Linker flags
+LDFLAGS = -m elf_i386 -T linker.ld --oformat elf32-i386
+
+# ============================================================================
+# PATHS
+# ============================================================================
+
+KERNEL_LIB_LLVM = ../kernel_lib/kernel_lib_llvm.a
+BOOTLOADER_STAGE1 = ../build/stage1.bin
+BOOTLOADER_STAGE2 = ../build/stage2.bin
+
+# ============================================================================
+# BUILD TARGETS
+# ============================================================================
+
+# Object files
+OBJS = entry.o main_llvm_test.o
+
+# Output files
+ELF = tinyllama_llvm.elf
+BIN = tinyllama_llvm.bin
+IMG = tinyllama_llvm.img
+
+# ============================================================================
+# DEFAULT TARGET
+# ============================================================================
+
+all: $(BIN)
+	@echo ""
+	@echo "=== TinyLlama LLVM Test Build Complete ==="
+	@echo "Binary size: $$(stat -c%s $(BIN)) bytes ($$(echo "scale=1; $$(stat -c%s $(BIN))/1024" | bc)KB)"
+	@echo ""
+
+# ============================================================================
+# COMPILATION
+# ============================================================================
+
+# Assemble entry point
+entry.o: entry.asm
+	@echo "  [ASM]  $<"
+	@$(ASM) $(ASMFLAGS) $< -o $@
+
+# Compile main_llvm_test
+main_llvm_test.o: main_llvm_test.c
+	@echo "  [CC]   $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+# ============================================================================
+# LINKING
+# ============================================================================
+
+# Link ELF executable with kernel_lib_llvm.a
+$(ELF): $(OBJS) $(KERNEL_LIB_LLVM) linker.ld
+	@echo "  [LD]   $@ (using kernel_lib_llvm.a)"
+	@$(LD) $(LDFLAGS) $(OBJS) $(KERNEL_LIB_LLVM) -o $@
+	@echo "  [INFO] ELF size: $$(stat -c%s $@) bytes"
+
+# Extract raw binary
+$(BIN): $(ELF)
+	@echo "  [BIN]  $@"
+	@$(OBJCOPY) -O binary $< $@
+	@echo "  [INFO] Verifying FLUD signature..."
+	@if hexdump -n 4 -e '4/1 "%02x"' $@ | grep -q "44554c46"; then \
+		echo "  [OK]   FLUD signature found"; \
+	else \
+		echo "  [ERROR] Missing FLUD signature!"; \
+		exit 1; \
+	fi
+
+# ============================================================================
+# BOOTABLE IMAGE
+# ============================================================================
+
+$(IMG): $(BIN)
+	@echo "  [IMG]  Creating bootable image..."
+	@if [ ! -f $(BOOTLOADER_STAGE1) ]; then \
+		echo "  [ERROR] Stage 1 bootloader not found. Run: make -C ../boot"; \
+		exit 1; \
+	fi
+	@if [ ! -f $(BOOTLOADER_STAGE2) ]; then \
+		echo "  [ERROR] Stage 2 bootloader not found. Run: make -C ../boot"; \
+		exit 1; \
+	fi
+	@# Create 10MB image
+	@dd if=/dev/zero of=$@ bs=512 count=20480 2>/dev/null
+	@# Write stage 1 (sector 0)
+	@dd if=$(BOOTLOADER_STAGE1) of=$@ bs=512 count=1 conv=notrunc 2>/dev/null
+	@# Write stage 2 (sectors 1-8)
+	@dd if=$(BOOTLOADER_STAGE2) of=$@ bs=512 seek=1 count=8 conv=notrunc 2>/dev/null
+	@# Write kernel (sector 9+)
+	@dd if=$(BIN) of=$@ bs=512 seek=9 conv=notrunc 2>/dev/null
+	@echo "  [OK]   Bootable image ready: $@"
+	@echo "         Image size: $$(stat -c%s $@) bytes"
+
+# ============================================================================
+# RUN IN QEMU
+# ============================================================================
+
+run: $(IMG)
+	@echo ""
+	@echo "========================================="
+	@echo "  Launching TinyLlama LLVM Test in QEMU"
+	@echo "========================================="
+	@echo ""
+	@qemu-system-i386 -drive file=$(IMG),format=raw -serial stdio
+
+debug: $(IMG)
+	@echo "  [QEMU] Launching with debug output..."
+	@qemu-system-i386 -drive file=$(IMG),format=raw -serial stdio -d cpu_reset,int
+
+# ============================================================================
+# UTILITY TARGETS
+# ============================================================================
+
+clean:
+	@echo "  [CLEAN]"
+	@rm -f $(OBJS) $(ELF) $(BIN) $(IMG)
+
+rebuild: clean all
+
+info: $(BIN)
+	@echo ""
+	@echo "=== TinyLlama LLVM Test Binary Info ==="
+	@echo "Size: $$(stat -c%s $(BIN)) bytes ($$(echo "scale=1; $$(stat -c%s $(BIN))/1024" | bc)KB)"
+	@echo ""
+	@echo "Using: kernel_lib_llvm.a (malloc_llvm + cpp_runtime)"
+	@echo ""
+
+.PHONY: all run debug clean rebuild info

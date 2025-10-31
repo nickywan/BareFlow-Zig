@@ -11,9 +11,9 @@
 [ORG 0x7E00]
 
 ; === CONSTANTS ===
-KERNEL_OFFSET equ 0x1000
-KERNEL_SECTORS equ 15
-KERNEL_SIGNATURE equ 0x464C5544 ; "FLUD"
+KERNEL_OFFSET equ 0x10000           ; Load at 64KB (standard kernel location)
+KERNEL_SECTORS equ 64               ; 64 sectors = 32KB (enough for unikernel)
+KERNEL_SIGNATURE equ 0x464C5544    ; "FLUD"
 MAX_RETRIES equ 3
 
 ; Error codes
@@ -63,15 +63,28 @@ stage2_start:
     mov si, msg_loading_kernel
     call print_string
     call load_kernel
-    
+    jc .kernel_load_error
+
     mov si, msg_ok
     call print_string
+    jmp .kernel_loaded
+
+.kernel_load_error:
+    mov al, ERR_DISK_READ
+    jmp fatal_error
+
+.kernel_loaded:
     
     ; Verify kernel signature
     mov si, msg_verify_sig
     call print_string
-    
-    mov eax, [KERNEL_OFFSET]
+
+    ; Read signature from 0x1000:0x0000 (physical 0x10000)
+    push es
+    mov ax, 0x1000
+    mov es, ax
+    mov eax, [es:0]
+    pop es
     cmp eax, KERNEL_SIGNATURE
     jne .sig_error
     
@@ -175,47 +188,117 @@ load_kernel:
 ; FUNCTION: load_kernel_lba
 ; ============================================================================
 load_kernel_lba:
+    ; Read 8 sectors at a time, 8 times (64 sectors total = 32KB)
+    ; 32KB fits in single segment, no segment advancement needed
+    mov cx, 8                       ; 8 iterations (64 sectors = 32KB)
+    mov bx, 0                       ; Starting offset (0)
+    mov ax, 0x1000                  ; Starting segment (0x1000:0x0000 = 0x10000)
+    mov di, 9                       ; Starting LBA (low word)
+    mov byte [lba_iter_count], 0    ; Iteration counter
+
+.loop:
+    push cx                         ; Save loop counter
+    push ax                         ; Save segment
+
     ; Setup DAP
     mov byte [dap_size], 0x10
     mov byte [dap_reserved], 0
-    mov word [dap_sectors], KERNEL_SECTORS
-    mov word [dap_offset], KERNEL_OFFSET
-    mov word [dap_segment], 0
-    mov dword [dap_lba_low], 9  ; Stage1=1 sector, Stage2=8 sectors, Kernel starts at 9
+    mov word [dap_sectors], 8       ; Read 8 sectors per iteration
+    mov word [dap_offset], bx       ; Current destination offset
+    mov word [dap_segment], ax      ; Current destination segment
+    mov word [dap_lba_low], di      ; Current LBA (low)
+    mov word [dap_lba_low+2], 0     ; Current LBA (high)
     mov dword [dap_lba_high], 0
-    
+
+    ; Read
     mov si, dap_size
     mov ah, 0x42
     mov dl, [BOOT_DRIVE]
     int 0x13
-    
+    jc .error
+
+    ; Update for next iteration
+    add di, 8                       ; Next LBA (8 sectors forward)
+    add bx, 8 * 512                 ; Next destination (8 sectors * 512 bytes = 4096)
+
+    ; Check if we've done 16 iterations (64KB worth)
+    inc byte [lba_iter_count]
+    cmp byte [lba_iter_count], 16
+    jl .no_segment_advance
+
+    ; Reset offset and advance segment by 64KB (0x1000)
+    mov byte [lba_iter_count], 0
+    xor bx, bx                      ; Reset offset to 0
+    pop ax                          ; Get current segment
+    add ax, 0x1000                  ; Advance by 64KB
+    push ax                         ; Save updated segment
+
+.no_segment_advance:
+    pop ax                          ; Restore segment
+    pop cx                          ; Restore loop counter
+    loop .loop
+
+.success:
+    clc
+    ret
+
+.error:
+    pop ax                          ; Clean up stack (segment)
+    pop cx                          ; Clean up stack (counter)
+    stc
     ret
 
 ; ============================================================================
 ; FUNCTION: load_kernel_chs
 ; ============================================================================
 load_kernel_chs:
-    mov ah, 0x02
-    mov al, KERNEL_SECTORS
-    mov ch, 0x00                ; Cylinder 0
-    mov cl, 0x0A                ; Sector 10 (9+1, sectors are 1-indexed)
-    mov dh, 0x00                ; Head 0
+    mov word [chs_sectors_remaining], KERNEL_SECTORS
+    mov word [chs_dest_segment], (KERNEL_OFFSET >> 4)  ; Convert address to segment
+    mov word [chs_dest_offset], 0                      ; Offset 0 within segment
+    mov byte [chs_current_sector], 10                  ; Sector 10 (9+1, CHS is 1-indexed)
+
+.loop:
+    ; Check if done
+    cmp word [chs_sectors_remaining], 0
+    je .success
+
+    ; Calculate sectors for this iteration (max 16)
+    mov ax, [chs_sectors_remaining]
+    cmp ax, 16
+    jbe .read_ok
+    mov ax, 16
+.read_ok:
+
+    ; Read sectors
+    push es
+    mov ax, [chs_dest_segment]
+    mov es, ax
+    mov ah, 0x02                        ; Read function
+    ; AL already set (sectors to read)
+    mov ch, 0x00                        ; Cylinder 0
+    mov cl, [chs_current_sector]        ; Current sector
+    mov dh, 0x00                        ; Head 0
     mov dl, [BOOT_DRIVE]
-    mov bx, KERNEL_OFFSET
+    mov bx, [chs_dest_offset]           ; Destination offset
     int 0x13
-    
+    pop es
     jc .error
-    
-    ; Verify sector count
-    cmp al, KERNEL_SECTORS
-    jne .verify_error
+
+    ; Save sectors read
+    mov cx, ax
+
+    ; Update for next iteration
+    sub [chs_sectors_remaining], cx
+    add [chs_current_sector], cl        ; Add to sector number
+    shl cx, 9                           ; * 512
+    add [chs_dest_offset], cx           ; Next destination
+
+    jmp .loop
+
+.success:
     clc
     ret
-    
-.verify_error:
-    mov al, ERR_DISK_VERIFY
-    jmp fatal_error
-    
+
 .error:
     stc
     ret
@@ -388,9 +471,10 @@ protected_mode_start:
     ; Setup stack
     mov ebp, 0x90000
     mov esp, ebp
-    
-    ; Jump to kernel
-    call KERNEL_OFFSET
+
+    ; Jump to kernel using absolute address in register
+    mov eax, KERNEL_OFFSET
+    jmp eax
     
     ; If kernel returns
     cli
@@ -446,9 +530,17 @@ dap_lba_low:    dd 0
 dap_lba_high:   dd 0
 
 ; Variables
-BOOT_DRIVE:         db 0
-lba_available:      db 0
-retry_count:        db 0
+BOOT_DRIVE:             db 0
+lba_available:          db 0
+retry_count:            db 0
+lba_iter_count:         db 0
+lba_sectors_remaining:  dw 0
+lba_dest_offset:        dw 0
+lba_current:            dd 0
+chs_sectors_remaining:  dw 0
+chs_dest_segment:       dw 0
+chs_dest_offset:        dw 0
+chs_current_sector:     db 0
 
 ; Messages
 msg_banner:         db 13, 10, '=== Fluid Bootloader Stage 2 ===', 13, 10, 0
@@ -460,6 +552,7 @@ msg_loading_kernel: db 'Loading kernel... ', 0
 msg_verify_sig:     db 'Verifying kernel signature... ', 0
 msg_enter_pm:       db 'Entering protected mode...', 13, 10, 0
 msg_ok:             db 'OK', 13, 10, 0
+msg_dot:            db '.', 0
 msg_error_prefix:   db 13, 10, 'FATAL ERROR: 0x', 0
 msg_error_suffix:   db 13, 10, 'System halted.', 13, 10, 0
 
