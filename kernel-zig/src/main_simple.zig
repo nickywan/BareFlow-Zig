@@ -29,6 +29,8 @@ pub fn serial_init() void {
 }
 
 pub fn serial_write(c: u8) void {
+    // Wait for THRE (bit 5) - Transmitter Holding Register Empty
+    // Standard serial polling - only check THRE, not TEMT
     while ((inb(COM1 + 5) & 0x20) == 0) {}
     outb(COM1, c);
 }
@@ -50,13 +52,11 @@ pub fn panic(msg: []const u8, _: ?*std.builtin.StackTrace, _: ?usize) noreturn {
 
 export fn kernel_main() void {
     serial_init();
-    serial_print("\n=================================\n");
-    serial_print("BareFlow Zig Kernel - 64-bit!\n");
-    serial_print("=================================\n");
-    serial_print("Boot successful!\n");
-    serial_print("64-bit mode active!\n");
-    serial_print("All kernel problems solved!\n");
-    serial_print("Halting now.\n\n");
+
+    // Test serial_print() with multiple strings
+    serial_print("BareFlow Zig Kernel\n");
+    serial_print("Serial I/O Test\n");
+    serial_print("Boot complete!\n");
 
     while (true) {
         asm volatile ("hlt");

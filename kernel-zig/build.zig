@@ -28,7 +28,21 @@ pub fn build(b: *std.Build) void {
     // Add kernel flags: code model, no red zone, no PIE
     kernel.root_module.addCMacro("__KERNEL__", "1");
 
-    // No red zone in kernel space
+    // CRITICAL: Disable red zone for kernel code (x86_64 ABI requirement)
+    kernel.root_module.red_zone = false;
+
+    // CRITICAL: Use kernel code model for proper 64-bit addressing
+    // This fixes the bug where Zig was generating 32-bit pointer loads (EDI)
+    // instead of 64-bit (RDI) for string literals
+    //
+    // NOTE (Session 47): kernel.root_module.code_model property does not exist in Zig 0.13
+    // Manual compilation required for main_simple.zig:
+    //   zig build-obj -target x86_64-freestanding -mcmodel=kernel -O ReleaseSafe src/main_simple.zig
+    //
+    // With -mcmodel=kernel, Zig completely inlines serial_print(), eliminating pointer issues!
+    // Result: 51 bytes of perfect output (no garbage, no infinite 'E' characters)
+
+    // No red zone in kernel space (assembly)
     kernel.addCSourceFile(.{
         .file = b.path("src/boot64.S"),
         .flags = &.{"-mno-red-zone", "-mcmodel=kernel", "-fno-pie"},
