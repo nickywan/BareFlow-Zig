@@ -64,26 +64,36 @@ rep stosb
 
 ---
 
-## ⚠️ En Debugging
+## ⚠️ En Debugging - DÉCOUVERTE IMPORTANTE!
 
-### Boot Process (32-bit → 64-bit)
+### ✅ Multiboot2 Header VALIDÉ!
+
+```bash
+grub-file --is-x86-multiboot2 iso/boot/kernel
+# ✓ Retourne succès!
+```
+
+**Le kernel EST un multiboot2 valide!** Le header fonctionne correctement.
+
+### Boot Process Status
 
 **Fichiers:**
 - `src/boot.S` (154 lignes) - Transition 32→64-bit + paging
+- `src/boot_minimal.S` (40 lignes) - Test 32-bit pur
 - `src/main.zig` (270 lignes) - Kernel principal
 - `src/linker.ld` - Linker script
 
 **État actuel:**
-1. ✅ Multiboot2 header présent (vérifié avec `xxd`)
-2. ✅ GRUB charge le kernel (pas d'erreur GRUB)
-3. ❌ Kernel s'exécute mais pas d'output visible
-4. ⚠️ VGA debug markers ('1234') ajoutés mais pas visibles
+1. ✅ Multiboot2 header VALIDÉ (grub-file confirme!)
+2. ✅ GRUB charge le kernel sans erreur
+3. ✅ Aucune exception/fault dans les logs QEMU
+4. ❌ Pas d'output VGA visible (ni 32-bit minimal, ni 64-bit complet)
 
-**Hypothèses:**
-- Transition 32→64-bit peut échouer silencieusement
-- GDT 64-bit peut être mal configuré
-- Paging setup peut avoir un problème
-- Entry point peut ne pas être appelé
+**Hypothèses révisées:**
+- ✅ Le header multiboot2 est correct
+- ⚠️ Problème probable: VGA pas accessible ou pas visible dans nos tests
+- ⚠️ Ou: Transition 32→64-bit échoue silencieusement
+- 💡 Besoin: GDB stepping pour voir instruction par instruction
 
 ---
 

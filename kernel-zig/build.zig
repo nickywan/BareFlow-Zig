@@ -19,6 +19,9 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // Disable PIE to avoid relocations (required for GRUB multiboot2)
+    kernel.pie = false;
+
     // Kernel-specific flags
     kernel.setLinkerScript(b.path("src/linker.ld"));
 

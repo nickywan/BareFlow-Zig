@@ -1,24 +1,25 @@
 # Multiboot2 header and boot entry for x86_64
 # GRUB boots us in 32-bit protected mode, so we need to setup long mode
 
-.section .multiboot
+.section .multiboot, "a"
 .align 8
 multiboot_header:
     .long 0xE85250D6                # Multiboot2 magic
     .long 0                          # Architecture (i386 protected mode)
     .long multiboot_header_end - multiboot_header
+    # Checksum
     .long -(0xE85250D6 + 0 + (multiboot_header_end - multiboot_header))
 
-    # End tag
+    # End tag (type=0, flags=0, size=8) - MUST be 8-byte aligned
     .align 8
-    .word 0
-    .word 0
-    .long 8
+    .short 0                         # type
+    .short 0                         # flags
+    .long 8                          # size
 multiboot_header_end:
 
-.section .bss
+# Page tables in .data (must NOT be in BSS or they get zeroed!)
+.section .data
 .align 4096
-# Page tables for 64-bit mode
 pml4:
     .skip 4096
 pdpt:
@@ -26,6 +27,7 @@ pdpt:
 pd:
     .skip 4096
 
+.section .bss
 .align 16
 stack_bottom:
     .skip 65536                      # 64KB stack
