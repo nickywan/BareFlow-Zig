@@ -123,28 +123,47 @@ fn test_return_value(x: i32) i32 {
 
 ---
 
-## 2025-11-01 Evening – Boot Investigation
+## 2025-11-01 Evening – Session 47: BREAKTHROUGH ✅
 
-### zig-kernel-developer
-- [ACTION] Investigated boot issue - kernel compiles but doesn't output
-- [FINDING] Multiboot2 header present (verified at offset 0x1000)
-- [FINDING] GRUB loads kernel without error
-- [STATUS] Created simple 32-bit test kernel (boot_simple.S)
-- [STATUS] Boot debugging in progress - see kernel-zig/README.md
-- [REF] kernel-zig/README.md - Complete debugging guide
+### 🎯 Root Cause Discovered
+- [CRITICAL] **32-bit code in 64-bit ELF binary** was the problem!
+- [INSIGHT] User observation: "C kernel booted fine with GRUB" → key to solution
+- [COMPARISON] C kernel used pure `.code64` from start, Zig kernel used `.code32` with transition
+- [VERIFICATION] Disassembly showed `mov $..., %esp` (32-bit) instead of `mov $..., %rsp` (64-bit)
 
-### Next Steps for Boot Debug
-1. Test simple kernel to isolate multiboot2 vs 64-bit transition
-2. Use QEMU debug logs (-d int,cpu_reset)
-3. Verify GDT 64-bit configuration
-4. Check if paging setup causes issues
+### ✅ Solution Implemented
+- [CREATED] **boot64.S** - Pure 64-bit boot code (no 32→64 transition)
+- [REASON] Modern GRUB Multiboot2 loads ELF64 directly in long mode
+- [APPROACH] Use 64-bit instructions from entry point: `mov $..., %rsp`, `movabs`
+- [RESULT] Kernel boots successfully in QEMU!
 
-### Blocker
-- ⚠️ Kernel doesn't produce output (VGA or serial)
-- Hypothesis: 32-bit → 64-bit transition or GDT issue
-- Work around: Simple 32-bit kernel created for testing
+### 🧪 Test Results
+1. **bareflow-simple.iso**: Boots but serial I/O has bug (infinite 'E' characters)
+2. **bareflow-vga.iso**: ✅ **COMPLETE SUCCESS** - boots, executes, halts properly!
+
+### 📁 Files Created
+- **src/boot64.S** - Pure 64-bit boot assembly
+- **src/main_simple.zig** - Minimal serial test kernel
+- **src/main_vga.zig** - VGA-only kernel (fully working)
+- **memset.c** - Simple memset for Zig runtime
+- **SESSION_47_BREAKTHROUGH.md** - Complete documentation
+
+### 🔑 Key Learnings
+- Modern Multiboot2 boots in 64-bit long mode - no need for 32→64 transition!
+- ELF header must match entry point code (ELF64 → 64-bit instructions)
+- Comparing working vs non-working implementations (C vs Zig) reveals root cause
+- All Session 46 "fixes" were correct but couldn't solve architecture mismatch
+
+### Next Steps
+1. Fix serial I/O bug in main_simple.zig (polling loop issue)
+2. Test full main.zig with 32 MB heap
+3. Document VGA output viewing in QEMU
+
+### Blocker - RESOLVED! ✅
+- ~~⚠️ Kernel doesn't produce output~~ → **SOLVED with boot64.S**
+- ~~Hypothesis: 32-bit → 64-bit transition~~ → **CONFIRMED and fixed**
 
 ---
 
-_Last updated: 2025-11-01 14:00 (Europe/Paris)_
+_Last updated: 2025-11-01 18:45 (Europe/Paris)_
 _Maintainer: zig-kernel-developer + project-overseer_

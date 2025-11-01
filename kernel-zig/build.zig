@@ -30,7 +30,7 @@ pub fn build(b: *std.Build) void {
 
     // No red zone in kernel space
     kernel.addCSourceFile(.{
-        .file = b.path("src/boot.S"),
+        .file = b.path("src/boot64.S"),
         .flags = &.{"-mno-red-zone", "-mcmodel=kernel", "-fno-pie"},
     });
 
