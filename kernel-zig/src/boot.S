@@ -38,23 +38,32 @@ stack_top:
 .global _start
 .type _start, @function
 _start:
-    # We're in 32-bit protected mode
-    # Write '1' to VGA to show we booted
-    movl $0xB8000, %edi
-    movw $0x0F31, (%edi)           # '1' in white on black
+    # Disable interrupts IMMEDIATELY
+    cli
 
-    # Setup temporary stack
+    # Setup stack FIRST (before any function calls)
     movl $stack_top, %esp
-
-    # Clear frame pointer
     xorl %ebp, %ebp
 
-    # Save multiboot info
-    pushl %ebx
-    pushl %eax
+    # Write '1' to VGA
+    movl $0xB8000, %edi
+    movw $0x0F31, (%edi)
+
+    # Disable PIC - mask all interrupts
+    movb $0xFF, %al
+    outb %al, $0xA1                 # Mask all IRQs on slave PIC
+    outb %al, $0x21                 # Mask all IRQs on master PIC
+
+    # Zero BSS early (before any memory usage)
+    call zero_bss
 
     # Write '2' to VGA
+    movl $0xB8000, %edi
     movw $0x0F32, 2(%edi)
+
+    # Save multiboot info (after BSS is zeroed)
+    pushl %ebx
+    pushl %eax
 
     # Setup page tables for 64-bit long mode
     call setup_page_tables
@@ -123,9 +132,22 @@ setup_page_tables:
 
     ret
 
+# Zero BSS in 32-bit mode (before any memory usage!)
+.code32
+zero_bss:
+    movl $__bss_start, %edi
+    movl $__bss_end, %ecx
+    subl %edi, %ecx
+    xorl %eax, %eax
+    rep stosb
+    ret
+
 # Now we're in 64-bit long mode!
 .code64
 long_mode_start:
+    # Disable interrupts (again, just to be safe)
+    cli
+
     # Set up segment registers
     movw $0x10, %ax
     movw %ax, %ds
@@ -138,12 +160,8 @@ long_mode_start:
     movq $stack_top, %rsp
     xorq %rbp, %rbp
 
-    # Zero BSS section
-    movq $__bss_start, %rdi
-    movq $__bss_end, %rcx
-    subq %rdi, %rcx
-    xorq %rax, %rax
-    rep stosb
+    # TODO: Setup IDT in Zig code if needed
+    # For now, we're running with interrupts disabled
 
     # Call Zig kernel main
     call kernel_main
