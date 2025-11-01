@@ -123,5 +123,28 @@ fn test_return_value(x: i32) i32 {
 
 ---
 
-_Last updated: 2025-11-01 13:30 (Europe/Paris)_
+## 2025-11-01 Evening – Boot Investigation
+
+### zig-kernel-developer
+- [ACTION] Investigated boot issue - kernel compiles but doesn't output
+- [FINDING] Multiboot2 header present (verified at offset 0x1000)
+- [FINDING] GRUB loads kernel without error
+- [STATUS] Created simple 32-bit test kernel (boot_simple.S)
+- [STATUS] Boot debugging in progress - see kernel-zig/README.md
+- [REF] kernel-zig/README.md - Complete debugging guide
+
+### Next Steps for Boot Debug
+1. Test simple kernel to isolate multiboot2 vs 64-bit transition
+2. Use QEMU debug logs (-d int,cpu_reset)
+3. Verify GDT 64-bit configuration
+4. Check if paging setup causes issues
+
+### Blocker
+- ⚠️ Kernel doesn't produce output (VGA or serial)
+- Hypothesis: 32-bit → 64-bit transition or GDT issue
+- Work around: Simple 32-bit kernel created for testing
+
+---
+
+_Last updated: 2025-11-01 14:00 (Europe/Paris)_
 _Maintainer: zig-kernel-developer + project-overseer_
