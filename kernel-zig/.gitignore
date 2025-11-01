@@ -1,0 +1,36 @@
+# Build artifacts
+*.o
+*.a
+*.elf
+kernel
+kernel64
+kernel_simple
+kernel_vga
+main_simple.o
+main_vga.o
+
+# Zig cache
+.zig-cache/
+zig-out/
+
+# ISO images (test artifacts)
+*.iso
+
+# Log files
+*.log
+
+# QEMU runtime files
+qemu.pid
+
+# GDB files
+.gdb_history
+
+# Backup files
+*~
+*.bak
+*.swp
+*.swo
+
+# OS-specific
+.DS_Store
+Thumbs.db
