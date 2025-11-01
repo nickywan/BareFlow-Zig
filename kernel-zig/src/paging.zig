@@ -112,10 +112,10 @@ pub const PageTable = struct {
 // This allows us to initialize page tables while using GRUB's mappings.
 // Session 50: Increased from 20 to 64 PT tables for better coverage
 // 64 PT tables = 64 × 2MB = 128MB address space (covers kernel + heap + growth)
-var pml4_table: PageTable align(PAGE_SIZE) = PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 };
-var pdpt_table: PageTable align(PAGE_SIZE) = PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 };
-var pd_tables: [4]PageTable align(PAGE_SIZE) = [_]PageTable{PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 }} ** 4;
-var pt_tables: [64]PageTable align(PAGE_SIZE) = [_]PageTable{PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 }} ** 64;
+pub var pml4_table: PageTable align(PAGE_SIZE) = PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 };
+pub var pdpt_table: PageTable align(PAGE_SIZE) = PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 };
+pub var pd_tables: [4]PageTable align(PAGE_SIZE) = [_]PageTable{PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 }} ** 4;
+pub var pt_tables: [64]PageTable align(PAGE_SIZE) = [_]PageTable{PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 }} ** 64;
 
 // Page table usage tracking
 var num_pd_tables: usize = 0;
@@ -300,14 +300,14 @@ pub fn map_range_mmio(start: usize, end: usize, writable: bool, no_exec: bool) !
 }
 
 // Linker-provided symbols for kernel sections
-extern var __text_start: u8;
-extern var __text_end: u8;
-extern var __rodata_start: u8;
-extern var __rodata_end: u8;
-extern var __data_start: u8;
-extern var __data_end: u8;
-extern var __bss_start: u8;
-extern var __bss_end: u8;
+pub extern var __text_start: u8;
+pub extern var __text_end: u8;
+pub extern var __rodata_start: u8;
+pub extern var __rodata_end: u8;
+pub extern var __data_start: u8;
+pub extern var __data_end: u8;
+pub extern var __bss_start: u8;
+pub extern var __bss_end: u8;
 
 /// Initialize paging with custom identity mappings for all kernel sections
 /// Session 49: Create custom page tables to map BSS (GRUB doesn't map it!)

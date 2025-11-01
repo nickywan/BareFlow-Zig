@@ -145,14 +145,22 @@ pub fn serial_print_hex(value: u32) void {
 }
 
 pub fn serial_print_hex64(value: u64) void {
+    // Session 50: Work around Zig compiler bug with 64-bit parameters in -mcmodel=kernel
+    // The optimizer incorrectly handles 64-bit values - use manual byte extraction
+    const bytes = @as(*const [8]u8, @ptrCast(&value));
+
     serial_write('0');
     serial_write('x');
-    // Use for loop with fixed count - 16 hex digits for 64-bit
+
+    // Print all 16 hex digits (big-endian: high byte first)
     var i: usize = 0;
-    while (i < 16) : (i += 1) {
-        const shift = @as(u6, @intCast(60 - (i * 4)));
-        const nibble = @as(u8, @truncate((value >> shift) & 0xF));
-        serial_write(nibble_to_hex(nibble));
+    while (i < 8) : (i += 1) {
+        const byte_idx = 7 - i; // Start from high byte (index 7)
+        const byte = bytes[byte_idx];
+        // High nibble
+        serial_write(nibble_to_hex(byte >> 4));
+        // Low nibble
+        serial_write(nibble_to_hex(byte & 0xF));
     }
 }
 
@@ -318,9 +326,20 @@ export fn kernel_main() void {
 
     // Initialize paging (Session 49 - Phase 5.1)
     serial_print("\n=== Initializing paging ===\n");
+    serial_print("Step 1: About to access linker symbols\n");
 
-    // Test: Can we access page table structures before init?
-    serial_print("Testing page table structure access...\n");
+    // Session 50: Test hex printing first
+    serial_print("Step 2: Testing hex printing with known value\n");
+    serial_print("Test value 0x1234567890ABCDEF = ");
+    serial_print_hex64(0x1234567890ABCDEF);
+    serial_print("\n");
+
+    serial_print("Step 3: Accessing __text_start\n");
+    const text_start_addr = @intFromPtr(&paging.__text_start);
+    serial_print("Step 4: Got text_start = ");
+    serial_print_hex64(text_start_addr);
+    serial_print("\n");
+    serial_print("Step 5: About to call init_paging()\n");
 
     paging.init_paging() catch |err| {
         serial_print("ERROR: Paging initialization failed: ");
