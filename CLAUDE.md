@@ -79,8 +79,10 @@ Sub-agents are **mandatory** to separate responsibilities and preserve context.
 
 - **`CONTEXT_BAREFLOW.md`** (root): **short global summary**, read **before** any action
   Contains only what was just decided/migrated/in progress (3–6 lines per entry)
-- **`kernel-zig/docs/ISSUES_RESOLVED.md`** ⚠️ **CRITICAL**: **Problems database**, read **when encountering bugs** or **before implementing new features**
-  Complete list of all boot/compilation/runtime issues and their solutions (Session 46-47+)
+- **`kernel-zig/docs/issues-resolved/`** ⚠️ **CRITICAL**: **Problems database** (one file per issue), read **when encountering bugs** or **before implementing new features**
+  - **`README.md`**: Index of all issues with quick reference by symptom
+  - **`issue-XX-*.md`**: Individual issue files (e.g., `issue-14-hex-printing-corruption.md`)
+  - **Structure** (Session 47+): Split into individual files to avoid reading entire database each time
 - **`kernel-zig/docs/ARCHITECTURE_64BIT.md`** 📌 **ARCHITECTURE**: Native 64-bit explanation, read **when in doubt about 32-bit vs 64-bit**
 - **`/context/agent-*.md`**: **memo per agent**, with technical details, logs, links, commands
 
@@ -88,13 +90,13 @@ Sub-agents are **mandatory** to separate responsibilities and preserve context.
 
 - **Before acting**:
   - _read_ `CONTEXT_BAREFLOW.md` + own memo `context/agent-<me>.md`
-  - ⚠️ **If encountering bugs**: IMMEDIATELY read `kernel-zig/docs/ISSUES_RESOLVED.md` BEFORE debugging
-  - 📌 **If implementing new kernel features**: Read `ISSUES_RESOLVED.md` "Quick Reference" section
+  - ⚠️ **If encountering bugs**: IMMEDIATELY read `kernel-zig/docs/issues-resolved/README.md` "Quick Reference" section, then read the specific issue file
+  - 📌 **If implementing new kernel features**: Read `issues-resolved/README.md` to check for related critical issues
   - 🔍 **If unsure about 32-bit vs 64-bit**: Read `kernel-zig/docs/ARCHITECTURE_64BIT.md`
 - **After complex action**:
   - Add **3–6 lines** at top of `CONTEXT_BAREFLOW.md` (dated, agent, [REF] to memo)
   - Add **details** (technical/bench/logs) at top of own memo `context/agent-<me>.md`
-  - 🆕 **If resolved a NEW bug**: Add entry to `kernel-zig/docs/ISSUES_RESOLVED.md` (see format in doc)
+  - 🆕 **If resolved a NEW bug**: Create `kernel-zig/docs/issues-resolved/issue-XX-short-title.md` following the format in `README.md`, then add link to index
 - **Overseer**: regularly consolidate/compress `CONTEXT_BAREFLOW.md` (≤150 lines), verify each agent has logged
 
 ### 3.3 Recommended Format
