@@ -53,6 +53,13 @@ _start:
     xor %eax, %eax
     rep stosb
 
+    # Enable NX (No-eXecute) bit in EFER (MSR 0xC0000080)
+    # This makes page table NX bits effective
+    mov $0xC0000080, %ecx           # EFER MSR
+    rdmsr                            # Read MSR into EDX:EAX
+    or $(1 << 11), %eax             # Set NXE bit (bit 11)
+    wrmsr                            # Write back to MSR
+
     # Setup page tables for identity mapping
     # PML4[0] -> PDPT
     movabs $pml4, %rdi

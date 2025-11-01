@@ -69,6 +69,19 @@ pub const PageTableEntry = packed struct(u64) {
         entry.set_address(phys_addr);
         return entry;
     }
+
+    /// Create a new page table entry for MMIO (uncacheable)
+    /// Sets PCD (Page Cache Disable) bit for memory-mapped I/O like VGA
+    pub fn new_mmio(phys_addr: usize, writable: bool, no_exec: bool) PageTableEntry {
+        var entry = PageTableEntry.empty();
+        entry.present = 1;
+        entry.writable = if (writable) 1 else 0;
+        entry.user = 0; // Kernel-only for MMIO
+        entry.cache_disable = 1; // PCD=1: Disable caching for MMIO
+        entry.no_execute = if (no_exec) 1 else 0;
+        entry.set_address(phys_addr);
+        return entry;
+    }
 };
 
 /// Page table (512 entries, 4KB aligned)
@@ -97,11 +110,12 @@ pub const PageTable = struct {
 // Note: Must be 4KB aligned
 // NOTE (Session 49): Moved from .bss to .data so GRUB maps them!
 // This allows us to initialize page tables while using GRUB's mappings.
-// 20 PT tables = 20 × 2MB = 40MB address space (enough for kernel + 32MB heap + margin)
+// Session 50: Increased from 20 to 64 PT tables for better coverage
+// 64 PT tables = 64 × 2MB = 128MB address space (covers kernel + heap + growth)
 var pml4_table: PageTable align(PAGE_SIZE) = PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 };
 var pdpt_table: PageTable align(PAGE_SIZE) = PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 };
 var pd_tables: [4]PageTable align(PAGE_SIZE) = [_]PageTable{PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 }} ** 4;
-var pt_tables: [20]PageTable align(PAGE_SIZE) = [_]PageTable{PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 }} ** 20;
+var pt_tables: [64]PageTable align(PAGE_SIZE) = [_]PageTable{PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 }} ** 64;
 
 // Page table usage tracking
 var num_pd_tables: usize = 0;
@@ -209,6 +223,82 @@ pub fn map_range_identity(start: usize, end: usize, writable: bool, no_exec: boo
     }
 }
 
+/// Map a single 4KB page with identity mapping (MMIO/uncacheable version)
+/// For memory-mapped I/O like VGA buffer - sets PCD bit
+pub fn map_page_mmio(virt_addr: usize, writable: bool, no_exec: bool) !void {
+    // Extract indices from virtual address
+    const pml4_idx = (virt_addr >> 39) & 0x1FF;
+    const pdpt_idx = (virt_addr >> 30) & 0x1FF;
+    const pd_idx = (virt_addr >> 21) & 0x1FF;
+    const pt_idx = (virt_addr >> 12) & 0x1FF;
+
+    // Level 1: PML4 -> PDPT
+    if (!pml4_table.entries[pml4_idx].is_present()) {
+        pml4_table.entries[pml4_idx] = PageTableEntry.new(
+            @intFromPtr(&pdpt_table),
+            true,
+            false,
+            false,
+        );
+    }
+
+    // Level 2: PDPT -> PD
+    if (!pdpt_table.entries[pdpt_idx].is_present()) {
+        if (num_pd_tables >= pd_tables.len) {
+            return error.OutOfPageDirectories;
+        }
+        pd_tables[num_pd_tables].zero();
+        pdpt_table.entries[pdpt_idx] = PageTableEntry.new(
+            @intFromPtr(&pd_tables[num_pd_tables]),
+            true,
+            false,
+            false,
+        );
+        num_pd_tables += 1;
+    }
+
+    // Get PD table
+    const pd_addr = pdpt_table.entries[pdpt_idx].get_address();
+    const pd_table = @as(*PageTable, @ptrFromInt(pd_addr));
+
+    // Level 3: PD -> PT
+    if (!pd_table.entries[pd_idx].is_present()) {
+        if (num_pt_tables >= pt_tables.len) {
+            return error.OutOfPageTables;
+        }
+        pt_tables[num_pt_tables].zero();
+        pd_table.entries[pd_idx] = PageTableEntry.new(
+            @intFromPtr(&pt_tables[num_pt_tables]),
+            true,
+            false,
+            false,
+        );
+        num_pt_tables += 1;
+    }
+
+    // Get PT table
+    const pt_addr = pd_table.entries[pd_idx].get_address();
+    const pt_table = @as(*PageTable, @ptrFromInt(pt_addr));
+
+    // Level 4: PT -> Physical page (identity mapping, MMIO/uncacheable)
+    pt_table.entries[pt_idx] = PageTableEntry.new_mmio(
+        virt_addr & ~@as(usize, 0xFFF), // Align to 4KB
+        writable,
+        no_exec,
+    );
+}
+
+/// Map a range of pages with identity mapping (MMIO/uncacheable version)
+pub fn map_range_mmio(start: usize, end: usize, writable: bool, no_exec: bool) !void {
+    const start_aligned = start & ~@as(usize, PAGE_SIZE - 1);
+    const end_aligned = (end + PAGE_SIZE - 1) & ~@as(usize, PAGE_SIZE - 1);
+
+    var addr = start_aligned;
+    while (addr < end_aligned) : (addr += PAGE_SIZE) {
+        try map_page_mmio(addr, writable, no_exec);
+    }
+}
+
 // Linker-provided symbols for kernel sections
 extern var __text_start: u8;
 extern var __text_end: u8;
@@ -252,8 +342,9 @@ pub fn init_paging() !void {
     // This is the critical mapping GRUB doesn't provide!
     try map_range_identity(bss_start, bss_end, true, true);
 
-    // Map VGA buffer (0xB8000) - Read + Write, no execute
-    try map_range_identity(0xB8000, 0xB8000 + 80 * 25 * 2, true, true);
+    // Map VGA buffer (0xB8000) as MMIO - Read + Write, no execute, uncacheable
+    // Session 50: Use map_range_mmio with PCD=1 for proper MMIO handling
+    try map_range_mmio(0xB8000, 0xB8000 + 80 * 25 * 2, true, true);
 
     // Load CR3 with our custom PML4 address
     const pml4_phys = @intFromPtr(&pml4_table);
