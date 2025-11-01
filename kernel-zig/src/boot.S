@@ -45,6 +45,11 @@ _start:
     movl $stack_top, %esp
     xorl %ebp, %ebp
 
+    # DEBUGCON: Signal boot start
+    movb $'B', %al
+    movw $0x402, %dx
+    outb %al, %dx
+
     # Write '1' to VGA
     movl $0xB8000, %edi
     movw $0x0F31, (%edi)
@@ -54,12 +59,34 @@ _start:
     outb %al, $0xA1                 # Mask all IRQs on slave PIC
     outb %al, $0x21                 # Mask all IRQs on master PIC
 
+    # DEBUGCON: PIC masked
+    movb $'P', %al
+    movw $0x402, %dx
+    outb %al, %dx
+
+    # Setup minimal IDT early (32-bit)
+    lidt idt32_pointer
+
+    # DEBUGCON: IDT loaded
+    movb $'I', %al
+    movw $0x402, %dx
+    outb %al, %dx
+
     # Zero BSS early (before any memory usage)
     call zero_bss
+
+    # DEBUGCON: BSS zeroed
+    movb $'Z', %al
+    movw $0x402, %dx
+    outb %al, %dx
 
     # Write '2' to VGA
     movl $0xB8000, %edi
     movw $0x0F32, 2(%edi)
+
+    # BISSECTION TEST: Uncomment to stop in 32-bit mode
+    # cli
+    # hlt
 
     # Save multiboot info (after BSS is zeroed)
     pushl %ebx
@@ -97,6 +124,11 @@ _start:
 
     # Load 64-bit GDT
     lgdt gdt64_pointer
+
+    # DEBUGCON: Jumping to 64-bit
+    movb $'J', %al
+    movw $0x402, %dx
+    outb %al, %dx
 
     # Far jump to 64-bit code
     ljmp $0x08, $long_mode_start
@@ -160,11 +192,30 @@ long_mode_start:
     movq $stack_top, %rsp
     xorq %rbp, %rbp
 
-    # TODO: Setup IDT in Zig code if needed
-    # For now, we're running with interrupts disabled
+    # DEBUGCON: In 64-bit mode
+    movb $'6', %al
+    movw $0x402, %dx
+    outb %al, %dx
+
+    # BISSECTION TEST: Uncomment to stop in 64-bit mode
+    # cli
+    # hlt
+
+    # Setup minimal 64-bit IDT
+    lidt idt64_pointer
+
+    # DEBUGCON: IDT64 loaded
+    movb $'K', %al
+    movw $0x402, %dx
+    outb %al, %dx
 
     # Call Zig kernel main
     call kernel_main
+
+    # DEBUGCON: Returned from kernel
+    movb $'R', %al
+    movw $0x402, %dx
+    outb %al, %dx
 
     # If kernel_main returns, halt
 halt:
@@ -185,3 +236,21 @@ gdt64:
 gdt64_pointer:
     .word gdt64_pointer - gdt64 - 1
     .quad gdt64
+
+# Minimal 32-bit IDT (just for early boot, catches exceptions)
+.align 16
+idt32:
+    .fill 256*8, 1, 0               # 256 empty entries (8 bytes each)
+
+idt32_pointer:
+    .word 256*8 - 1
+    .long idt32
+
+# Minimal 64-bit IDT (catches exceptions in 64-bit mode)
+.align 16
+idt64:
+    .fill 256*16, 1, 0              # 256 empty entries (16 bytes each)
+
+idt64_pointer:
+    .word 256*16 - 1
+    .quad idt64

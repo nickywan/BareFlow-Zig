@@ -1,0 +1,26 @@
+# Bochs configuration for BareFlow Zig kernel debugging
+
+# Memory
+megs: 128
+
+# Boot from CD-ROM
+boot: cdrom
+ata0-master: type=cdrom, path="test-minimal.iso", status=inserted
+
+# Display
+display_library: x
+vgaromimage: file=/usr/share/bochs/VGABIOS-lgpl-latest
+romimage: file=/usr/share/bochs/BIOS-bochs-latest
+
+# CPU
+cpu: count=1, ips=4000000, reset_on_triple_fault=1
+
+# Logging
+log: bochs.log
+error: action=report
+info: action=report
+debug: action=ignore
+panic: action=ask
+
+# Enable debugger
+magic_break: enabled=1

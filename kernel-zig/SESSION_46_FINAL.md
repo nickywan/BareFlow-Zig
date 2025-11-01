@@ -54,18 +54,37 @@
 
 **Hypothèse**: Incompatibilité QEMU SeaBIOS / GRUB ou problème création ISO
 
+### 7. IDT minimal installé (RÉSOLU)
+- IDT32 (256 entries × 8 bytes) installé avant transition
+- IDT64 (256 entries × 16 bytes) installé en 64-bit
+- Évite triple faults sur exceptions
+
+### 8. Debugcon early logging (AJOUTÉ)
+- Port 0x402 pour debug avant serial init
+- Markers: B (boot), P (PIC), I (IDT), Z (BSS), J (jump 64), 6 (64-bit), K (IDT64), R (return)
+- **TEST RÉSULTAT**: Aucun marker détecté → kernel ne s'exécute jamais
+- Confirme: problème GRUB/ISO, PAS le kernel
+
 ## 🔧 Fichiers Modifiés (Session 46)
 
 1. **build.zig**
    - Ligne 23: `kernel.pie = false`
 
-2. **src/boot.S** (améliorations sécurité):
+2. **src/boot.S** (améliorations sécurité + debugcon):
    - Ligne 41-42: `cli` immédiat
-   - Ligne 44-46: Stack setup en premier  
-   - Ligne 52-55: Masquage PIC
-   - Ligne 57-58: Zero BSS early (32-bit)
+   - Ligne 44-46: Stack setup en premier
+   - Ligne 48-51: Debugcon marker 'B' (boot start)
+   - Ligne 56-60: Masquage PIC
+   - Ligne 62-65: Debugcon marker 'P' (PIC masked)
+   - Ligne 66-73: IDT32 installé + debugcon marker 'I'
+   - Ligne 73-81: Zero BSS + debugcon marker 'Z'
+   - Ligne 124-131: Debugcon marker 'J' (jump to 64-bit)
+   - Ligne 190-198: Debugcon marker '6' (in 64-bit mode)
+   - Ligne 199-210: IDT64 installé + debugcon marker 'K'
+   - Ligne 215-218: Debugcon marker 'R' (return from kernel)
    - Ligne 135-143: Fonction `zero_bss()`
    - Ligne 148: `cli` en 64-bit (safety)
+   - Ligne 232-248: IDT32 et IDT64 tables
    - Page tables dans .data (ligne 21-28)
 
 ## 📊 État Actuel
@@ -77,10 +96,14 @@
 - BSS zeroing correct
 - PIC masqué
 - Stack safe
+- IDT minimal installé (32-bit et 64-bit)
+- Debugcon logging implémenté
 
-**Boot Infrastructure**: ❌ Problème
+**Boot Infrastructure**: ❌ Problème CONFIRMÉ
 - ISO ne boot pas dans QEMU
-- Probablement problème grub-mkrescue/QEMU, PAS le kernel
+- **Test debugcon**: AUCUN marker détecté (B, P, I, Z, J, 6, K, R)
+- Kernel `_start` ne s'exécute JAMAIS
+- **CONFIRMÉ**: problème grub-mkrescue/GRUB/SeaBIOS, PAS le kernel
 
 ## 🔜 Solutions Alternatives
 
