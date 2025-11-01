@@ -1,4 +1,39 @@
 const std = @import("std");
+const paging = @import("paging.zig");
+
+// Freestanding memory functions (required by Zig codegen)
+export fn memset(dest: [*]u8, c: c_int, n: usize) [*]u8 {
+    var i: usize = 0;
+    const byte_val = @as(u8, @truncate(@as(u32, @bitCast(c))));
+    while (i < n) : (i += 1) {
+        dest[i] = byte_val;
+    }
+    return dest;
+}
+
+export fn memcpy(dest: [*]u8, src: [*]const u8, n: usize) [*]u8 {
+    var i: usize = 0;
+    while (i < n) : (i += 1) {
+        dest[i] = src[i];
+    }
+    return dest;
+}
+
+export fn memmove(dest: [*]u8, src: [*]const u8, n: usize) [*]u8 {
+    if (@intFromPtr(dest) < @intFromPtr(src)) {
+        var i: usize = 0;
+        while (i < n) : (i += 1) {
+            dest[i] = src[i];
+        }
+    } else {
+        var i: usize = n;
+        while (i > 0) {
+            i -= 1;
+            dest[i] = src[i];
+        }
+    }
+    return dest;
+}
 
 // Serial port for output
 const COM1 = 0x3F8;
@@ -7,19 +42,41 @@ const COM1 = 0x3F8;
 const VGA_BUFFER = @as(*volatile [25][80]u16, @ptrFromInt(0xB8000));
 
 // Static heap buffer in BSS (automatically zeroed by Zig!)
-// Testing with 32MB heap
-var heap_buffer: [32 * 1024 * 1024]u8 align(4096) = undefined;
+// NOTE (Session 48): Testing with 1MB first to see if 32MB BSS causes paging issues
+var heap_buffer: [1 * 1024 * 1024]u8 align(4096) = undefined;
 
 // Simple bump allocator - just increment pointer
 var heap_offset: usize = 0;
 
 // Simple allocator that never fails (for testing)
 fn simple_alloc(size: usize) *u8 {
+    serial_print("simple_alloc called with size: ");
+    serial_print_hex(@as(u32, @truncate(size)));
+    serial_print("\n");
+
     const aligned_size = (size + 15) & ~@as(usize, 15); // 16-byte alignment
+    serial_print("aligned_size: ");
+    serial_print_hex(@as(u32, @truncate(aligned_size)));
+    serial_print("\n");
+
+    serial_print("heap_offset: ");
+    serial_print_hex(@as(u32, @truncate(heap_offset)));
+    serial_print("\n");
+
+    serial_print("heap_buffer.len: ");
+    serial_print_hex(@as(u32, @truncate(heap_buffer.len)));
+    serial_print("\n");
+
     if (heap_offset + aligned_size > heap_buffer.len) {
         // Out of memory - panic
+        serial_print("OUT OF MEMORY!\n");
         @panic("Out of heap memory");
     }
+
+    serial_print("Getting pointer at offset: ");
+    serial_print_hex(@as(u32, @truncate(heap_offset)));
+    serial_print("\n");
+
     const ptr = &heap_buffer[heap_offset];
     heap_offset += aligned_size;
     return ptr;
@@ -138,6 +195,28 @@ fn test_return_value(x: i32) i32 {
 fn test_allocation() void {
     serial_print("\n=== Testing Simple Allocator (32MB heap!) ===\n");
 
+    serial_print("Heap buffer address: ");
+    serial_print_hex64(@intFromPtr(&heap_buffer));
+    serial_print("\n");
+    serial_print("Heap buffer size: ");
+    serial_print_hex(@as(u32, @truncate(heap_buffer.len)));
+    serial_print("\n");
+    serial_print("Heap offset: ");
+    serial_print_hex(@as(u32, @truncate(heap_offset)));
+    serial_print("\n");
+    serial_print("TestStruct size: ");
+    serial_print_hex(@as(u32, @truncate(@sizeOf(TestStruct))));
+    serial_print("\n");
+
+    serial_print("Testing heap buffer access...\n");
+
+    // Test if we can write to heap_buffer[0]
+    serial_print("Writing to heap_buffer[0]...\n");
+    heap_buffer[0] = 0x42;
+    serial_print("Read back: ");
+    serial_print_hex(@as(u32, heap_buffer[0]));
+    serial_print("\n");
+
     serial_print("About to allocate TestStruct...\n");
 
     // Allocate a test structure
@@ -236,6 +315,19 @@ export fn kernel_main() void {
     serial_print("   BareFlow Zig Kernel v0.1.0\n");
     serial_print("=====================================\n");
     serial_print("✓ Kernel booted successfully!\n");
+
+    // Initialize paging (Session 48 - Phase 5.1)
+    serial_print("\n=== Initializing paging ===\n");
+    paging.init_paging() catch |err| {
+        serial_print("ERROR: Paging initialization failed: ");
+        switch (err) {
+            error.OutOfPageDirectories => serial_print("Out of page directories\n"),
+            error.OutOfPageTables => serial_print("Out of page tables\n"),
+        }
+        @panic("Paging init failed");
+    };
+    serial_print("✓ Custom page tables loaded\n");
+    serial_print("✓ Identity mapping: kernel + heap + VGA\n");
 
     // Clear VGA and show status
     vga_clear();
