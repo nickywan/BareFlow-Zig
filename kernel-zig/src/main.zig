@@ -7,8 +7,8 @@ const COM1 = 0x3F8;
 const VGA_BUFFER = @as(*volatile [25][80]u16, @ptrFromInt(0xB8000));
 
 // Static heap buffer in BSS (automatically zeroed by Zig!)
-// Start with 1MB for testing, will increase later
-var heap_buffer: [1 * 1024 * 1024]u8 align(4096) = undefined;
+// Testing with 32MB heap
+var heap_buffer: [32 * 1024 * 1024]u8 align(4096) = undefined;
 
 // Simple bump allocator - just increment pointer
 var heap_offset: usize = 0;
@@ -64,9 +64,15 @@ pub fn serial_print(msg: []const u8) void {
     }
 }
 
-// Helper function to convert nibble to hex char (no string literals!)
+// Lookup table for hex conversion (compile-time constant in .rodata)
+// NOTE: Using lookup table instead of conditional (if nibble < 10)
+// because ReleaseFast optimization breaks the conditional comparison,
+// causing all values to take the wrong branch (Session 47 bug fix)
+const HEX_DIGITS: [16]u8 = [_]u8{ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+
+// Helper function to convert nibble to hex char using lookup table
 fn nibble_to_hex(nibble: u8) u8 {
-    return if (nibble < 10) '0' + nibble else 'A' + (nibble - 10);
+    return HEX_DIGITS[nibble & 0xF];
 }
 
 pub fn serial_print_hex(value: u32) void {
@@ -120,9 +126,9 @@ const TestStruct = struct {
 
 // Function that returns values properly (no C ABI issues!)
 fn test_return_value(x: i32) i32 {
-    serial_print("Testing return value...\n");
-    // Temporarily skip hex printing to isolate issue
-    // serial_print_hex(@as(u32, @bitCast(x)));
+    serial_print("Testing return value with x = ");
+    serial_print_hex(@as(u32, @bitCast(x)));
+    serial_print("\n");
 
     // This will return properly, no mysterious crashes!
     return x + 42;
@@ -184,16 +190,22 @@ fn test_allocation() void {
 fn test_returns() void {
     serial_print("\n=== Testing Return Values (No ABI issues!) ===\n");
 
-    _ = test_return_value(100);
-    serial_print("Result 1 complete\n");
+    const result1 = test_return_value(100);
+    serial_print("Result 1: ");
+    serial_print_hex(@as(u32, @bitCast(result1)));
+    serial_print(" (expected 0x8E = 142)\n");
 
-    _ = test_return_value(-50);
-    serial_print("Result 2 complete\n");
+    const result2 = test_return_value(-50);
+    serial_print("Result 2: ");
+    serial_print_hex(@as(u32, @bitCast(result2)));
+    serial_print(" (expected -8)\n");
 
     // Test with function pointer - still works!
     const fn_ptr = &test_return_value;
-    _ = fn_ptr(1000);
-    serial_print("Result 3 complete\n");
+    const result3 = fn_ptr(1000);
+    serial_print("Result via ptr: ");
+    serial_print_hex(@as(u32, @bitCast(result3)));
+    serial_print(" (expected 0x412 = 1042)\n");
 
     serial_print("✓ Return value test passed!\n");
 }
@@ -232,16 +244,10 @@ export fn kernel_main() void {
 
     // Show heap info
     serial_print("\nHeap Configuration:\n");
-    serial_print("  Buffer size: 1 MB (testing)\n");
-    serial_print("  Test hex output: ");
-    // Simple test: just write known hex digits directly
-    serial_write('0');
-    serial_write('x');
-    serial_write('1');
-    serial_write('2');
-    serial_write('3');
-    serial_write('4');
-    serial_write('\n');
+    serial_print("  Buffer size: 32 MB (testing)\n");
+    serial_print("  Test hex: ");
+    serial_print_hex64(0x123456789ABCDEF0);
+    serial_print("\n");
     serial_print("  Alignment: 4096 bytes\n");
 
     // Test our problematic areas from C
