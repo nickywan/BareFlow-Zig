@@ -93,14 +93,15 @@ pub const PageTable = struct {
     }
 };
 
-// Static page tables in .bss (automatically zeroed)
+// Static page tables in .data (explicitly zeroed, so GRUB maps them!)
 // Note: Must be 4KB aligned
-// NOTE (Session 48): Reduced from 512 to 8 PT tables to avoid 2MB BSS bloat
-// 8 PT tables = 8 × 2MB = 16MB address space (enough for kernel + heap)
-var pml4_table: PageTable align(PAGE_SIZE) = undefined;
-var pdpt_table: PageTable align(PAGE_SIZE) = undefined;
-var pd_tables: [2]PageTable align(PAGE_SIZE) = undefined;  // 2 PD tables (4MB)
-var pt_tables: [8]PageTable align(PAGE_SIZE) = undefined;  // 8 PT tables (16MB)
+// NOTE (Session 49): Moved from .bss to .data so GRUB maps them!
+// This allows us to initialize page tables while using GRUB's mappings.
+// 20 PT tables = 20 × 2MB = 40MB address space (enough for kernel + 32MB heap + margin)
+var pml4_table: PageTable align(PAGE_SIZE) = PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 };
+var pdpt_table: PageTable align(PAGE_SIZE) = PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 };
+var pd_tables: [4]PageTable align(PAGE_SIZE) = [_]PageTable{PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 }} ** 4;
+var pt_tables: [20]PageTable align(PAGE_SIZE) = [_]PageTable{PageTable{ .entries = [_]PageTableEntry{PageTableEntry.empty()} ** 512 }} ** 20;
 
 // Page table usage tracking
 var num_pd_tables: usize = 0;
@@ -208,34 +209,65 @@ pub fn map_range_identity(start: usize, end: usize, writable: bool, no_exec: boo
     }
 }
 
-/// Initialize paging with identity mapping for kernel and heap
-/// NOTE (Session 48): For now, we keep GRUB's page tables active.
-/// Creating entirely new page tables causes triple fault because:
-/// 1. We access unmapped memory while setting up tables
-/// 2. GRUB's identity mapping works fine for our needs
-/// This is Phase 5.1 - basic setup. Phase 5.2 will add RW→RX transitions.
+// Linker-provided symbols for kernel sections
+extern var __text_start: u8;
+extern var __text_end: u8;
+extern var __rodata_start: u8;
+extern var __rodata_end: u8;
+extern var __data_start: u8;
+extern var __data_end: u8;
+extern var __bss_start: u8;
+extern var __bss_end: u8;
+
+/// Initialize paging with custom identity mappings for all kernel sections
+/// Session 49: Create custom page tables to map BSS (GRUB doesn't map it!)
+/// NOTE: Page tables MUST be in .data (not .bss) so GRUB maps them during bootstrap!
 pub fn init_paging() !void {
-    // For Session 48, we just verify paging is active and keep GRUB's tables
-    // TODO (Session 49): Implement custom page tables with proper bootstrapping
+    // Get kernel section addresses from linker
+    const text_start = @intFromPtr(&__text_start);
+    const text_end = @intFromPtr(&__text_end);
+    const rodata_start = @intFromPtr(&__rodata_start);
+    const rodata_end = @intFromPtr(&__rodata_end);
+    const data_start = @intFromPtr(&__data_start);
+    const data_end = @intFromPtr(&__data_end);
+    const bss_start = @intFromPtr(&__bss_start);
+    const bss_end = @intFromPtr(&__bss_end);
 
-    const current_cr3 = get_cr3();
-    _ = current_cr3; // GRUB already set this up
-
-    // Initialize our table structures (for future use)
-    // NOTE: We don't initialize all 512 PT tables (2MB!) to avoid BSS bloat
-    // Only initialize as needed when we actually create custom mappings
+    // Initialize page table tracking
     num_pd_tables = 0;
     num_pt_tables = 0;
 
-    // Success - paging is already active from GRUB
+    // Page tables are already zeroed (in .data section, initialized at compile time)
+
+    // Map kernel .text (code) - Read + Execute, no write
+    try map_range_identity(text_start, text_end, false, false);
+
+    // Map kernel .rodata (constants) - Read only, no execute
+    try map_range_identity(rodata_start, rodata_end, false, true);
+
+    // Map kernel .data (initialized data) - Read + Write, no execute
+    try map_range_identity(data_start, data_end, true, true);
+
+    // Map kernel .bss (heap + page tables) - Read + Write, no execute
+    // This is the critical mapping GRUB doesn't provide!
+    try map_range_identity(bss_start, bss_end, true, true);
+
+    // Map VGA buffer (0xB8000) - Read + Write, no execute
+    try map_range_identity(0xB8000, 0xB8000 + 80 * 25 * 2, true, true);
+
+    // Load CR3 with our custom PML4 address
+    const pml4_phys = @intFromPtr(&pml4_table);
+    set_cr3(pml4_phys);
+
+    // Success - custom page tables now active!
 }
 
 /// Dump page table statistics (for debugging)
-pub fn dump_stats(serial_print: *const fn ([]const u8) void) void {
-    serial_print("Page Table Statistics:\n");
-    serial_print("  PD tables used: ");
+pub fn dump_stats(print_fn: *const fn ([]const u8) void) void {
+    print_fn("Page Table Statistics:\n");
+    print_fn("  PD tables used: ");
     // TODO: Add hex printing here
-    serial_print("\n  PT tables used: ");
+    print_fn("\n  PT tables used: ");
     // TODO: Add hex printing here
-    serial_print("\n");
+    print_fn("\n");
 }

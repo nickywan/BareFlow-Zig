@@ -42,8 +42,8 @@ const COM1 = 0x3F8;
 const VGA_BUFFER = @as(*volatile [25][80]u16, @ptrFromInt(0xB8000));
 
 // Static heap buffer in BSS (automatically zeroed by Zig!)
-// NOTE (Session 48): Testing with 1MB first to see if 32MB BSS causes paging issues
-var heap_buffer: [1 * 1024 * 1024]u8 align(4096) = undefined;
+// Session 49: Now mapped by custom page tables, can use full 32MB!
+var heap_buffer: [32 * 1024 * 1024]u8 align(4096) = undefined;
 
 // Simple bump allocator - just increment pointer
 var heap_offset: usize = 0;
@@ -316,8 +316,12 @@ export fn kernel_main() void {
     serial_print("=====================================\n");
     serial_print("✓ Kernel booted successfully!\n");
 
-    // Initialize paging (Session 48 - Phase 5.1)
+    // Initialize paging (Session 49 - Phase 5.1)
     serial_print("\n=== Initializing paging ===\n");
+
+    // Test: Can we access page table structures before init?
+    serial_print("Testing page table structure access...\n");
+
     paging.init_paging() catch |err| {
         serial_print("ERROR: Paging initialization failed: ");
         switch (err) {

@@ -8,21 +8,27 @@ SECTIONS
 
     .text : ALIGN(4K)
     {
+        __text_start = .;
         KEEP(*(.multiboot))
         *(.text)
         *(.text.*)
+        __text_end = .;
     }
 
     .rodata : ALIGN(4K)
     {
+        __rodata_start = .;
         *(.rodata)
         *(.rodata.*)
+        __rodata_end = .;
     }
 
     .data : ALIGN(4K)
     {
+        __data_start = .;
         *(.data)
         *(.data.*)
+        __data_end = .;
     }
 
     .bss : ALIGN(4K)
