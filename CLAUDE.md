@@ -37,6 +37,12 @@ Boot 1000:  [2-5MB]     Pure native export
 - ✅ Better LLVM integration (native IR generation)
 - ✅ Freestanding support (designed for bare-metal)
 
+**Implementation Strategy** (Session 47):
+- 🎯 **Primary**: Everything implementable in Zig → implement in Zig (native code)
+- 🔄 **Fallback**: If impossible in Zig → C/C++ wrapper loaded in Zig
+- ✅ **Examples**: VGA, serial I/O, hex printing → all pure Zig
+- 🔄 **Future**: LLVM ORC JIT → C++ wrapper (no Zig bindings yet)
+
 **See**: `ZIG_MIGRATION_STRATEGY.md` for complete migration plan
 
 ---
